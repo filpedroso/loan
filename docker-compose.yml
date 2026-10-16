@@ -1,0 +1,76 @@
+# The whole app, locally. `make up` builds and starts it; see README.md.
+name: loan
+
+services:
+  postgres:
+    image: postgres:17.11-alpine
+    environment:
+      POSTGRES_DB: loans
+      POSTGRES_USER: loans
+      POSTGRES_PASSWORD: loans # Local only.
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loans -d loans"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build:
+      context: .
+      dockerfile: backend/src/Loans.Api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ConnectionStrings__Loans: "Host=postgres;Database=loans;Username=loans;Password=loans"
+      Crm__BaseUrl: "http://partner:8080/"
+      Cors__AllowedOrigins__0: "http://localhost:3000"
+      RateLimiting__PermitLimit: "${RATE_LIMIT:-20}" # `make load` raises it.
+      # Local-only keys. In production they come from a secret store.
+      Ssn__HashKey: "xyRKMLQN2eeFC/y2Ygi6lXcBBFZinSl5wV3lFoSwlSM="
+      Ssn__EncryptionKey: "wn99p4RG5CX2zk3G7SZeUd0Lc0gr85aB2csTLQAN5ik="
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  partner:
+    build:
+      context: .
+      dockerfile: partner/Partner.Mock/Dockerfile
+    ports:
+      - "8081:8080"
+
+  web:
+    build:
+      context: web
+      args:
+        NEXT_PUBLIC_API_URL: "http://localhost:8080"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.1
+    ports:
+      - "18888:18888"
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true" # Local only: no login.
+
+  k6:
+    image: grafana/k6:1.8.2
+    profiles: ["load"]
+    volumes:
+      - ./load:/scripts:ro
+    environment:
+      API_URL: "http://api:8080"
+    command: run /scripts/submit.js
+    depends_on:
+      - api
+
+volumes:
+  postgres-data:

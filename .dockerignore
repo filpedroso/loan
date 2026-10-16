@@ -1,0 +1,7 @@
+# The .NET images build from the repository root and only need the backend and partner sources.
+.git
+**/bin
+**/obj
+web
+load
+backend/tests
