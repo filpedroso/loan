@@ -1,0 +1,6 @@
+# LF everywhere: Makefile and shell scripts break with CRLF in Linux/WSL.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary

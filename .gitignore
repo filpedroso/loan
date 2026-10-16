@@ -1,0 +1,23 @@
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+.vs/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Local secrets
+.env
+.env.local
