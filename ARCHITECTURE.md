@@ -1,0 +1,119 @@
+# Architecture
+
+```
+Browser ── POST /api/v1/applications ──▶ API (.NET 10) ──▶ PostgreSQL
+                                          │
+                                          └─ outbox worker, every 30 s ── PUT /applications/{id} ──▶ CRM (mock)
+```
+
+The API decides right away. If it approves, it saves the customer, the application and an outbox message in one transaction. The worker later delivers the message to the CRM and retries until the CRM answers 200.
+
+## Layers
+
+| Folder | Responsibility | Depends on |
+|---|---|---|
+| `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `Money` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
+| `backend/src/Loans.Application` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
+| `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, CRM client | Application |
+| `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |
+| `partner/Partner.Mock` | The external CRM, in memory | none |
+| `web` | Next.js form; calls the API from the browser | the API, over HTTP |
+
+Dependencies point inward, and project references enforce it: the Domain can't reference EF Core or ASP.NET. Infrastructure is a separate project, so the worker can move to its own host without the web API.
+
+## Request flow
+
+1. The controller maps the JSON to a command and calls `SubmitLoanApplication`.
+2. The service creates the value objects. They validate themselves; invalid input becomes a 400 that names the field.
+3. It loads the customer by SSN. A returning customer is updated (`UpdateDetails`); a new one is registered (`Register`). `customer.Apply(amount)` creates the application, or overwrites its amount and keeps its id.
+4. `DecisionEngine` evaluates the customer. A denial returns 200 with reason codes, and nothing is saved.
+5. `SaveApprovedAsync` saves customer, application and outbox message, and the API returns 200 with the application id.
+
+## Decision engine
+
+- A rule implements `IDecisionRule`: one `Reason` and `ValueTask<bool> IsSatisfiedAsync(Customer)`. Synchronous rules return a completed `ValueTask` at no cost; only the blocklist rule does I/O.
+- The engine runs every rule without stopping at the first failure, so a denial lists all its reasons.
+- Rules today:
+  - `StateServedRule`: states listed in `Decision:BlockedStates`, default `NY`.
+  - `SsnNotBlocklistedRule`: checks the SSN through `ISsnBlocklist`.
+- To add a rule, write a class and add one line in `Program.cs`. No existing rule changes.
+- The API turns `SsnBlocklisted` into the generic `NotEligible`. Otherwise anyone could test SSNs against the blocklist.
+
+## Transaction and failures midway
+
+A database write and an HTTP call can't be one atomic transaction. So the CRM call isn't part of the transaction; the *intent* to call it is. The outbox message is committed together with the data, and delivery is retried until it succeeds.
+
+| Fails at | Result |
+|---|---|
+| Validation or decision | Nothing written |
+| Any database write (customer, application or outbox) | One `SaveChanges` in one transaction: everything rolls back, the user gets a 500 |
+| After the commit: CRM down, 500, timeout | The message stays pending and is retried every 30 s; the data is already saved |
+| CRM answers 400 | Retried like any failure, then dead-lettered |
+| Worker crashes mid-send, or the 200 is lost | The message is sent again. Harmless: `PUT` overwrites |
+
+**Same SSN at the same moment.** Looking up the customer opens the transaction and takes a PostgreSQL advisory lock keyed on the SSN hash, held until commit or rollback. A second submission for that SSN waits a few milliseconds, then finds the customer and updates it, with no error and no retry. Different SSNs never wait for each other.
+
+## Outbox worker
+
+- Every 30 s (`Outbox:Interval`), a tick takes batches of 20 messages with `FOR UPDATE SKIP LOCKED` and tries each message at most once.
+- Ids are UUIDv7, so ordering by id means oldest first.
+- The payload is built from the current data at send time. The CRM always gets the latest submission, and the SSN never sits in the outbox.
+- Outcomes:
+  - **200:** `delivered_at` is set.
+  - **Any other answer:** `attempts + 1` and a Warning log.
+  - **The 10th failure:** an Error log; the message is dead-lettered (`delivered_at IS NULL AND attempts = 10`).
+  - **500, timeout or network error:** the CRM looks down, so the tick stops there. The remaining messages keep their attempts for the next tick.
+- To replay dead letters: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
+- Several API replicas can run the worker: `SKIP LOCKED` keeps two of them off the same message. If a worker crashes, its transaction rolls back and the messages return to the queue.
+
+## Calling the CRM
+
+- `CrmClient` is a typed `HttpClient` with a 5 s timeout and no retry policy; the outbox is the only retry mechanism.
+- It always sends `PUT /applications/{id}`, which creates or overwrites, so a resend is harmless. The body holds the customer's details, SSN and requested amount. Only 200 counts as success.
+- The mock also has `POST` (create) and `GET` (list what it received), and answers 400 for invalid data.
+
+## Personal data and security
+
+- **SSN storage:** an HMAC-SHA256 hash for lookups and the blocklist, plus an AES-GCM encrypted copy that only the worker decrypts.
+- **SSN everywhere else:** `Ssn.ToString()` masks it, EF Core doesn't log parameter values, and SSNs never appear in URLs.
+- **Result page:** shows only what was just submitted, never stored data.
+- **API:** CORS allows only the web origin; requests are rate-limited per client IP (`RateLimiting:PermitLimit` per minute).
+- **Web app:** sends `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy` headers.
+- **Keys:** come from configuration. The ones in `docker-compose.yml` and `appsettings.Development.json` are for local use only and are kept out of the published image.
+
+## Observability
+
+- The API sends logs, traces and metrics over OTLP to the Aspire Dashboard (http://localhost:18888) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- `/health` checks the database.
+- A worker delivery is a separate trace from the request that created it; the application id in the logs connects them.
+
+## Decisions and tradeoffs
+
+| Decision | Why | Cost |
+|---|---|---|
+| Outbox with eventual delivery | Data and intent commit together; delivery survives CRM outages | The CRM is up to 30 s behind |
+| Fixed 30 s interval, 10 attempts | Simple, and no extra column | Outages longer than ~5 min dead-letter messages; replay is manual |
+| Worker inside the API process | One deployable | Scales with the API; `Outbox:Enabled=false` separates them |
+| One application per customer, overwritten | The exercise asks for it | No history of past submissions |
+| Denials aren't stored | Keeps the model small | No record of why someone was denied. In real US lending, denials need regulated notices (ECOA / Reg B) and record keeping |
+| Advisory lock per SSN | No retry code, and no mixed updates | Holds a connection for the few ms between lookup and save |
+| One DbContext per request, no pooling | The SSN converter needs the encryption service injected | Microseconds per request |
+| Migrations at API startup | No separate migration step; EF Core locks against concurrent runs | The app's database user needs schema rights |
+| Browser calls the API directly | No backend-for-frontend to build | The API is public; CORS and rate limiting protect it |
+
+## Known tech debt
+
+- No authentication; anyone can submit.
+- No authentication between the API and the CRM either; in production, an API key or mTLS.
+- Delivered outbox rows are never deleted. A cleanup job should remove old ones.
+- Dead letters are only visible in logs and SQL; there's no replay tool.
+- SSN key rotation isn't supported. It would need re-hashing and re-encrypting.
+- Behind a proxy, per-IP rate limiting needs forwarded headers.
+- The frontend has no automated tests.
+
+## Scaling up
+
+- Run the worker as an Azure Function on a timer trigger, calling the same `OutboxDispatcher`, with `Outbox:Enabled=false` in the API.
+- Wake the worker right after a commit with PostgreSQL `LISTEN/NOTIFY` instead of waiting for the next tick.
+- Exponential backoff with a `next_attempt_at` column, and parallel sends within a batch.
+- Secrets in Azure Key Vault with managed identity; HTTPS terminated at the ingress.
