@@ -33,7 +33,7 @@ make up       # builds and starts everything
 
 ```bash
 make test   # backend unit + integration tests and frontend tests; needs the .NET 10 SDK, Node and Docker
-make load   # k6 against the running stack: 10 s warm-up, then 100 requests/s for 30 s; must keep p95 < 200 ms and < 1% errors
+make load   # k6 against the running stack: 10 s warm-up, then 70 requests/s for 30 s; must keep p95 < 200 ms and < 1% errors
 ```
 
 - Integration tests start a throwaway PostgreSQL with Testcontainers.
