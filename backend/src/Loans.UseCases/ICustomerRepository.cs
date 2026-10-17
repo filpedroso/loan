@@ -11,6 +11,6 @@ public interface ICustomerRepository
     /// </summary>
     Task<Customer?> FindBySsnAsync(Ssn ssn, CancellationToken ct);
 
-    /// <summary>Saves the customer, their loan application and the CRM sync message, in one transaction.</summary>
+    /// <summary>Saves the customer, their loan application and the external partner sync message, in one transaction.</summary>
     Task SaveApprovedAsync(Customer customer, CancellationToken ct);
 }

@@ -1,15 +1,15 @@
 using System.Collections.Concurrent;
 
-// Mock of the external CRM. It keeps what it receives in memory, keyed by application id.
+// Mock of the external partner. It keeps what it receives in memory, keyed by loan application id.
 var builder = WebApplication.CreateBuilder(args);
 var app = builder.Build();
 
-var received = new ConcurrentDictionary<Guid, ReceivedApplication>();
+var received = new ConcurrentDictionary<Guid, ReceivedLoanApplication>();
 
-app.MapPost("/applications", (CrmApplication application, ILogger<Program> logger) => Store(application, logger));
+app.MapPost("/applications", (LoanApplication application, ILogger<Program> logger) => Store(application, logger));
 
 // Creates the application if it doesn't exist, so it's safe to send the same one twice.
-app.MapPut("/applications/{id:guid}", (Guid id, CrmApplication application, ILogger<Program> logger) =>
+app.MapPut("/applications/{id:guid}", (Guid id, LoanApplication application, ILogger<Program> logger) =>
     id == application.Id
         ? Store(application, logger)
         : Results.ValidationProblem(new Dictionary<string, string[]> { ["id"] = ["Must match the id in the body."] }));
@@ -18,18 +18,18 @@ app.MapGet("/applications", () => received.Values.OrderBy(r => r.ReceivedAt));
 
 app.Run();
 
-IResult Store(CrmApplication application, ILogger logger)
+IResult Store(LoanApplication application, ILogger logger)
 {
     var errors = Validate(application);
     if (errors.Count > 0)
         return Results.ValidationProblem(errors);
 
-    received[application.Id] = new ReceivedApplication(application, DateTimeOffset.UtcNow);
-    logger.LogInformation("Received application {ApplicationId}.", application.Id);
+    received[application.Id] = new ReceivedLoanApplication(application, DateTimeOffset.UtcNow);
+    logger.LogInformation("Received loan application {LoanApplicationId}.", application.Id);
     return Results.Ok();
 }
 
-static Dictionary<string, string[]> Validate(CrmApplication application)
+static Dictionary<string, string[]> Validate(LoanApplication application)
 {
     var errors = new Dictionary<string, string[]>();
     if (application.Id == Guid.Empty)
@@ -51,7 +51,7 @@ static Dictionary<string, string[]> Validate(CrmApplication application)
     return errors;
 }
 
-internal sealed record CrmApplication(
+internal sealed record LoanApplication(
     Guid Id,
     string FirstName,
     string LastName,
@@ -61,4 +61,4 @@ internal sealed record CrmApplication(
     string Ssn,
     decimal RequestedAmount);
 
-internal sealed record ReceivedApplication(CrmApplication Application, DateTimeOffset ReceivedAt);
+internal sealed record ReceivedLoanApplication(LoanApplication LoanApplication, DateTimeOffset ReceivedAt);

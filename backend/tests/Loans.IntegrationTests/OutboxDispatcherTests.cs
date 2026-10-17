@@ -14,11 +14,11 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
         client = factory.CreateClient();
     }
 
-    // Every test starts with an empty outbox and a CRM that answers 200.
+    // Every test starts with an empty outbox and an external partner that answers 200.
     public async ValueTask InitializeAsync()
     {
         await factory.ExecuteSqlAsync("TRUNCATE outbox");
-        factory.Crm.Reset();
+        factory.ExternalPartner.Reset();
     }
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
@@ -33,7 +33,7 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
 
         var message = Assert.Single(await factory.OutboxAsync(id));
         Assert.NotNull(message.DeliveredAt);
-        var call = Assert.Single(factory.Crm.Calls);
+        var call = Assert.Single(factory.ExternalPartner.Calls);
         Assert.Equal(HttpMethod.Put, call.Method);
         Assert.Equal($"/applications/{id}", call.Path);
         using var body = JsonDocument.Parse(call.Body);
@@ -44,15 +44,15 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
     [Theory]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(null)] // Network error.
-    public async Task When_the_crm_looks_down_the_tick_stops_after_one_attempt(HttpStatusCode? status)
+    public async Task When_the_partner_looks_down_the_tick_stops_after_one_attempt(HttpStatusCode? status)
     {
         var first = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
         var second = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
-        factory.Crm.Reset(status);
+        factory.ExternalPartner.Reset(status);
 
         await factory.DispatchOutboxAsync();
 
-        Assert.Single(factory.Crm.Calls);
+        Assert.Single(factory.ExternalPartner.Calls);
         Assert.Equal(1, Assert.Single(await factory.OutboxAsync(first)).Attempts);
         Assert.Equal(0, Assert.Single(await factory.OutboxAsync(second)).Attempts);
     }
@@ -62,11 +62,11 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
     {
         var first = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
         var second = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
-        factory.Crm.Reset(HttpStatusCode.BadRequest);
+        factory.ExternalPartner.Reset(HttpStatusCode.BadRequest);
 
         await factory.DispatchOutboxAsync();
 
-        Assert.Equal(2, factory.Crm.Calls.Count);
+        Assert.Equal(2, factory.ExternalPartner.Calls.Count);
         Assert.Equal(1, Assert.Single(await factory.OutboxAsync(first)).Attempts);
         Assert.Equal(1, Assert.Single(await factory.OutboxAsync(second)).Attempts);
     }
@@ -75,12 +75,12 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
     public async Task After_ten_failed_attempts_the_message_is_dead_lettered()
     {
         var id = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
-        factory.Crm.Reset(HttpStatusCode.InternalServerError);
+        factory.ExternalPartner.Reset(HttpStatusCode.InternalServerError);
 
         for (var tick = 0; tick < 11; tick++)
             await factory.DispatchOutboxAsync();
 
-        Assert.Equal(10, factory.Crm.Calls.Count); // The 11th tick leaves it alone.
+        Assert.Equal(10, factory.ExternalPartner.Calls.Count); // The 11th tick leaves it alone.
         var message = Assert.Single(await factory.OutboxAsync(id));
         Assert.Equal(10, message.Attempts);
         Assert.Null(message.DeliveredAt);
@@ -95,7 +95,7 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
 
         await factory.DispatchOutboxAsync();
 
-        Assert.Equal(5, factory.Crm.Calls.Count);
+        Assert.Equal(5, factory.ExternalPartner.Calls.Count);
     }
 
     [Fact]
@@ -107,8 +107,8 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
 
         await factory.DispatchOutboxAsync();
 
-        Assert.Equal(2, factory.Crm.Calls.Count);
-        Assert.All(factory.Crm.Calls, call =>
+        Assert.Equal(2, factory.ExternalPartner.Calls.Count);
+        Assert.All(factory.ExternalPartner.Calls, call =>
         {
             using var body = JsonDocument.Parse(call.Body);
             Assert.Equal($"/applications/{id}", call.Path);

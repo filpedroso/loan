@@ -3,10 +3,10 @@
 ```
 Browser ── POST /api/v1/applications ──▶ API (.NET 10) ──▶ PostgreSQL
                                           │
-                                          └─ outbox worker, every 30 s ── PUT /applications/{id} ──▶ CRM (mock)
+                                          └─ outbox worker, every 30 s ── PUT /applications/{id} ──▶ External partner (mock)
 ```
 
-The API decides right away. If it approves, it saves the customer, the application and an outbox message in one transaction. The worker later delivers the message to the CRM and retries until the CRM answers 200.
+The API decides right away. If it approves, it saves the customer, the application and an outbox message in one transaction. The worker later delivers the message to the external partner and retries until the partner answers 200.
 
 ## Layers
 
@@ -14,9 +14,9 @@ The API decides right away. If it approves, it saves the customer, the applicati
 |---|---|---|
 | `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `RequestedAmount` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
 | `backend/src/Loans.UseCases` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
-| `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, CRM client | Application |
+| `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, external partner client | Application |
 | `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |
-| `partner/Partner.Mock` | The external CRM, in memory. Has its own build settings, as another company's system would | none |
+| `partner/ExternalPartner.Mock` | The external partner, in memory. Has its own build settings, as another company's system would | none |
 | `web` | Next.js form; calls the API from the browser | the API, over HTTP |
 | `infra` | Docker Compose stack and the k6 load test | the images of the above |
 
@@ -44,14 +44,14 @@ Dependencies point inward, and project references enforce it: the Domain can't r
 
 ## Transaction and failures midway
 
-A database write and an HTTP call can't be one atomic transaction. So the CRM call isn't part of the transaction; the *intent* to call it is. The outbox message is committed together with the data, and delivery is retried until it succeeds.
+A database write and an HTTP call can't be one atomic transaction. So the call to the external partner isn't part of the transaction; the *intent* to call it is. The outbox message is committed together with the data, and delivery is retried until it succeeds.
 
 | Fails at | Result |
 |---|---|
 | Validation or decision | Nothing written |
 | Any database write (customer, application or outbox) | One `SaveChanges` in one transaction: everything rolls back, the user gets a 500 |
-| After the commit: CRM down, 500, timeout | The message stays pending and is retried every 30 s; the data is already saved |
-| CRM answers 400 | Retried like any failure, then dead-lettered |
+| After the commit: partner down, 500, timeout | The message stays pending and is retried every 30 s; the data is already saved |
+| Partner answers 400 | Retried like any failure, then dead-lettered |
 | Worker crashes mid-send, or the 200 is lost | The message is sent again. Harmless: `PUT` overwrites |
 
 **Same SSN at the same moment.** Looking up the customer opens the transaction and takes a PostgreSQL advisory lock keyed on the SSN hash, held until commit or rollback. A second submission for that SSN waits a few milliseconds, then finds the customer and updates it, with no error and no retry. Different SSNs never wait for each other.
@@ -60,18 +60,18 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 
 - Every 30 s (`Outbox:Interval`), a tick takes batches of 20 messages with `FOR UPDATE SKIP LOCKED` and tries each message at most once.
 - Ids are UUIDv7, so ordering by id means oldest first.
-- The payload is built from the current data at send time. The CRM always gets the latest submission, and the SSN never sits in the outbox.
+- The payload is built from the current data at send time. The partner always gets the latest submission, and the SSN never sits in the outbox.
 - Outcomes:
   - **200:** `delivered_at` is set.
   - **Any other answer:** `attempts + 1` and a Warning log.
   - **The 10th failure:** an Error log; the message is dead-lettered (`delivered_at IS NULL AND attempts = 10`).
-  - **500, timeout or network error:** the CRM looks down, so the tick stops there. The remaining messages keep their attempts for the next tick.
+  - **500, timeout or network error:** the partner looks down, so the tick stops there. The remaining messages keep their attempts for the next tick.
 - To replay dead letters: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
 - Several API replicas can run the worker: `SKIP LOCKED` keeps two of them off the same message. If a worker crashes, its transaction rolls back and the messages return to the queue.
 
-## Calling the CRM
+## Calling the external partner
 
-- `CrmClient` is a typed `HttpClient` with a 5 s timeout and no retry policy; the outbox is the only retry mechanism.
+- `ExternalPartnerClient` is a typed `HttpClient` with a 5 s timeout and no retry policy; the outbox is the only retry mechanism.
 - It always sends `PUT /applications/{id}`, which creates or overwrites, so a resend is harmless. The body holds the customer's details, SSN and requested amount. Only 200 counts as success.
 - The mock also has `POST` (create) and `GET` (list what it received), and answers 400 for invalid data.
 
@@ -87,7 +87,7 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 ## Observability
 
 - The API sends logs, traces and metrics over OTLP to the Aspire Dashboard (http://localhost:18888) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-- Traces cover incoming requests, CRM calls and every PostgreSQL command, so a slow request shows where its time went. Metrics include the database connection pool.
+- Traces cover incoming requests, calls to the external partner and every PostgreSQL command, so a slow request shows where its time went. Metrics include the database connection pool.
 - `/health` checks the database.
 - A worker delivery is a separate trace from the request that created it; the application id in the logs connects them.
 
@@ -95,7 +95,7 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 
 | Decision | Why | Cost |
 |---|---|---|
-| Outbox with eventual delivery | Data and intent commit together; delivery survives CRM outages | The CRM is up to 30 s behind |
+| Outbox with eventual delivery | Data and intent commit together; delivery survives partner outages | The partner is up to 30 s behind |
 | Fixed 30 s interval, 10 attempts | Simple, and no extra column | Outages longer than ~5 min dead-letter messages; replay is manual |
 | Worker inside the API process | One deployable | Scales with the API; `Outbox:Enabled=false` separates them |
 | One application per customer, overwritten | The exercise asks for it | No history of past submissions |
@@ -108,7 +108,7 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 ## Known tech debt
 
 - No authentication; anyone can submit.
-- No authentication between the API and the CRM either; in production, an API key or mTLS.
+- No authentication between the API and the external partner either; in production, an API key or mTLS.
 - Delivered outbox rows are never deleted. A cleanup job should remove old ones.
 - Dead letters are only visible in logs and SQL; there's no replay tool.
 - SSN key rotation isn't supported. It would need re-hashing and re-encrypting.

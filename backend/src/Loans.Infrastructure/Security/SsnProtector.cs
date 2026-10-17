@@ -7,7 +7,7 @@ namespace Loans.Infrastructure.Security;
 
 /// <summary>
 /// Protects SSNs at rest with two keys: an HMAC-SHA256 hash for lookups (same SSN, same hash; can't be reversed
-/// without the key) and an AES-GCM encrypted copy, which only the outbox worker decrypts to send to the CRM.
+/// without the key) and an AES-GCM encrypted copy, which only the outbox worker decrypts to send to the external partner.
 /// </summary>
 public sealed class SsnProtector
 {

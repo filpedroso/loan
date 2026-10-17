@@ -4,7 +4,7 @@ A business loan application:
 - a Next.js form
 - a .NET 10 API that decides on each application
 - PostgreSQL
-- an outbox worker that sends approved applications to an external CRM (mocked here)
+- an outbox worker that sends approved applications to an external partner (mocked here)
 
 How it's built and why: [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -21,7 +21,7 @@ make up       # builds and starts everything
 |---|---|
 | Web app | http://localhost:3000 |
 | API | http://localhost:8080 (health: `/health`) |
-| CRM mock: what it received | http://localhost:8081/applications |
+| External partner mock: what it received | http://localhost:8081/applications |
 | Dashboard: logs, traces, metrics | http://localhost:18888 |
 
 - `make down` stops everything and keeps the database. `docker compose -f infra/docker-compose.yml down -v` deletes the database too.
@@ -61,10 +61,10 @@ curl -X POST http://localhost:8080/api/v1/applications -H 'Content-Type: applica
 
 Within 30 seconds of an approval, the application shows up at http://localhost:8081/applications.
 
-To simulate a CRM outage:
-1. `docker compose -f infra/docker-compose.yml stop partner`
+To simulate an external partner outage:
+1. `docker compose -f infra/docker-compose.yml stop external-partner`
 2. Submit an application. Warnings appear in the dashboard's structured logs.
-3. `docker compose -f infra/docker-compose.yml start partner`. The next worker tick delivers it.
+3. `docker compose -f infra/docker-compose.yml start external-partner`. The next worker tick delivers it.
 
 ## Develop without containers
 
@@ -72,7 +72,7 @@ To simulate a CRM outage:
 |---|---|
 | Database | `docker compose -f infra/docker-compose.yml up -d postgres` |
 | API | `dotnet run --project backend/src/Loans.Api`, on http://localhost:8080, using `appsettings.Development.json` |
-| CRM mock | `dotnet run --project partner/Partner.Mock`, on http://localhost:8081 |
+| External partner mock | `dotnet run --project partner/ExternalPartner.Mock`, on http://localhost:8081 |
 | Web | `cd web && npm ci && npm run dev`, on http://localhost:3000 |
 
 Run `dotnet` commands for the backend (tests, `dotnet ef`) from `backend/`, where its `global.json`, tool manifest and solution are.

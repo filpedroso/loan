@@ -3,7 +3,7 @@ using Loans.Domain.Decisions;
 
 namespace Loans.UseCases;
 
-/// <summary>The use case: decide on a loan application and, if approved, save it and schedule the CRM sync.</summary>
+/// <summary>The use case: decide on a loan application and, if approved, save it and schedule the external partner sync.</summary>
 public sealed class SubmitLoanApplication(ICustomerRepository customers, DecisionEngine engine)
 {
     public async Task<SubmissionResult> HandleAsync(SubmitLoanApplicationCommand command, CancellationToken ct)

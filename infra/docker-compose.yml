@@ -26,7 +26,7 @@ services:
       - "8080:8080"
     environment:
       ConnectionStrings__Loans: "Host=postgres;Database=loans;Username=loans;Password=loans"
-      Crm__BaseUrl: "http://partner:8080/"
+      ExternalPartner__BaseUrl: "http://external-partner:8080/"
       Cors__AllowedOrigins__0: "http://localhost:3000"
       RateLimiting__PermitLimit: "${RATE_LIMIT:-20}" # `make load` raises it.
       # Local-only keys. In production they come from a secret store.
@@ -37,10 +37,10 @@ services:
       postgres:
         condition: service_healthy
 
-  partner:
+  external-partner:
     build:
       context: ../partner
-      dockerfile: Partner.Mock/Dockerfile
+      dockerfile: ExternalPartner.Mock/Dockerfile
     ports:
       - "8081:8080"
 

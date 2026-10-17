@@ -33,10 +33,10 @@ doctor: ## Check the tools this project needs, and print how to install missing 
 up: ## Build and start everything
 	$(COMPOSE) up -d --build
 	@echo ""
-	@echo "  Web app     http://localhost:3000"
-	@echo "  API         http://localhost:8080/health"
-	@echo "  CRM mock    http://localhost:8081/applications"
-	@echo "  Dashboard   http://localhost:18888"
+	@echo "  Web app      http://localhost:3000"
+	@echo "  API          http://localhost:8080/health"
+	@echo "  Partner mock http://localhost:8081/applications"
+	@echo "  Dashboard    http://localhost:18888"
 
 down: ## Stop everything (keeps the database)
 	$(COMPOSE) down

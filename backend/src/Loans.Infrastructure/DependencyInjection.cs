@@ -1,5 +1,5 @@
 using Loans.Domain.Decisions;
-using Loans.Infrastructure.Crm;
+using Loans.Infrastructure.ExternalPartner;
 using Loans.Infrastructure.Outbox;
 using Loans.Infrastructure.Persistence;
 using Loans.Infrastructure.Security;
@@ -25,10 +25,10 @@ public static class DependencyInjection
         services.AddOptions<OutboxOptions>().BindConfiguration("Outbox");
         services.AddScoped<OutboxDispatcher>();
         services.AddHostedService<OutboxWorker>();
-        services.AddHttpClient<CrmClient>((sp, http) =>
+        services.AddHttpClient<ExternalPartnerClient>((sp, http) =>
         {
-            http.BaseAddress = new Uri(sp.GetRequiredService<IConfiguration>()["Crm:BaseUrl"]
-                ?? throw new InvalidOperationException("Missing configuration: Crm:BaseUrl."));
+            http.BaseAddress = new Uri(sp.GetRequiredService<IConfiguration>()["ExternalPartner:BaseUrl"]
+                ?? throw new InvalidOperationException("Missing configuration: ExternalPartner:BaseUrl."));
             http.Timeout = TimeSpan.FromSeconds(5);
         });
 

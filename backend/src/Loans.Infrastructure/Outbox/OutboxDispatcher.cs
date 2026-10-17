@@ -1,6 +1,6 @@
 using System.Net;
 using Loans.Domain.Customers;
-using Loans.Infrastructure.Crm;
+using Loans.Infrastructure.ExternalPartner;
 using Loans.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -9,12 +9,12 @@ using Microsoft.Extensions.Options;
 namespace Loans.Infrastructure.Outbox;
 
 /// <summary>
-/// One worker tick: sends every pending message to the CRM in batches, each message at most once per tick.
-/// When the CRM looks down (500, timeout, network error) the tick stops, so the remaining messages wait
+/// One worker tick: sends every pending message to the external partner in batches, each message at most once per tick.
+/// When the external partner looks down (500, timeout, network error) the tick stops, so the remaining messages wait
 /// for the next tick instead of using up their attempts during an outage.
 /// </summary>
 public sealed class OutboxDispatcher(
-    LoansDbContext db, CrmClient crm, IOptions<OutboxOptions> options, ILogger<OutboxDispatcher> logger)
+    LoansDbContext db, ExternalPartnerClient partner, IOptions<OutboxOptions> options, ILogger<OutboxDispatcher> logger)
 {
     public async Task DispatchAsync(CancellationToken ct)
     {
@@ -47,14 +47,14 @@ public sealed class OutboxDispatcher(
             .Where(c => loanApplicationIds.Contains(c.LoanApplication!.Id))
             .ToDictionaryAsync(c => c.LoanApplication!.Id, ct);
 
-        var crmDown = false;
+        var partnerDown = false;
         foreach (var message in batch)
         {
             var (delivered, looksDown, status) = await SendAsync(customers[message.LoanApplicationId], ct);
             if (delivered)
             {
                 message.DeliveredAt = DateTimeOffset.UtcNow;
-                logger.LogInformation("Delivered loan application {LoanApplicationId} to the CRM.", message.LoanApplicationId);
+                logger.LogInformation("Delivered loan application {LoanApplicationId} to the external partner.", message.LoanApplicationId);
                 continue;
             }
 
@@ -62,19 +62,19 @@ public sealed class OutboxDispatcher(
             if (message.Attempts >= settings.MaxAttempts)
             {
                 logger.LogError(
-                    "CRM delivery of loan application {LoanApplicationId} failed ({Status}) {Attempts} times; dead-lettered.",
+                    "Delivery of loan application {LoanApplicationId} to the external partner failed ({Status}) {Attempts} times; dead-lettered.",
                     message.LoanApplicationId, status, message.Attempts);
             }
             else
             {
                 logger.LogWarning(
-                    "CRM delivery of loan application {LoanApplicationId} failed ({Status}), attempt {Attempt} of {MaxAttempts}.",
+                    "Delivery of loan application {LoanApplicationId} to the external partner failed ({Status}), attempt {Attempt} of {MaxAttempts}.",
                     message.LoanApplicationId, status, message.Attempts, settings.MaxAttempts);
             }
 
             if (looksDown)
             {
-                crmDown = true;
+                partnerDown = true;
                 break;
             }
         }
@@ -82,14 +82,14 @@ public sealed class OutboxDispatcher(
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
         db.ChangeTracker.Clear();
-        return crmDown ? null : batch[^1].Id;
+        return partnerDown ? null : batch[^1].Id;
     }
 
     private async Task<(bool Delivered, bool LooksDown, string Status)> SendAsync(Customer customer, CancellationToken ct)
     {
         try
         {
-            var status = await crm.PutApplicationAsync(customer, ct);
+            var status = await partner.PutLoanApplicationAsync(customer, ct);
             return (status == HttpStatusCode.OK, (int)status >= 500, ((int)status).ToString());
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException && !ct.IsCancellationRequested)

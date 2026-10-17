@@ -2,15 +2,15 @@ using System.Net;
 
 namespace Loans.IntegrationTests;
 
-/// <summary>Stands in for the CRM: records every call and answers with <see cref="Status"/>.</summary>
-public sealed class StubCrmHandler : HttpMessageHandler
+/// <summary>Stands in for the external partner: records every call and answers with <see cref="Status"/>.</summary>
+public sealed class StubExternalPartnerHandler : HttpMessageHandler
 {
-    private readonly List<CrmCall> calls = [];
+    private readonly List<ExternalPartnerCall> calls = [];
 
     /// <summary>The status to answer with. Null simulates a network error.</summary>
     public HttpStatusCode? Status { get; private set; } = HttpStatusCode.OK;
 
-    public IReadOnlyList<CrmCall> Calls
+    public IReadOnlyList<ExternalPartnerCall> Calls
     {
         get { lock (calls) return [.. calls]; }
     }
@@ -24,7 +24,7 @@ public sealed class StubCrmHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
         var body = request.Content is null ? "" : await request.Content.ReadAsStringAsync(ct);
-        lock (calls) calls.Add(new CrmCall(request.Method, request.RequestUri!.AbsolutePath, body));
+        lock (calls) calls.Add(new ExternalPartnerCall(request.Method, request.RequestUri!.AbsolutePath, body));
 
         return Status is { } status
             ? new HttpResponseMessage(status)
@@ -32,4 +32,4 @@ public sealed class StubCrmHandler : HttpMessageHandler
     }
 }
 
-public sealed record CrmCall(HttpMethod Method, string Path, string Body);
+public sealed record ExternalPartnerCall(HttpMethod Method, string Path, string Body);
