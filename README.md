@@ -2,9 +2,9 @@
 
 A business loan application:
 - a Next.js form
-- a .NET 10 API that decides on each application
+- a .NET 10 API that decides on each loan application
 - PostgreSQL
-- an outbox worker that sends approved applications to an external partner (mocked here)
+- an outbox worker that sends approved loan applications to an external partner (mocked here)
 
 How it's built and why: [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -46,7 +46,7 @@ None of these SSNs can belong to a real person: the SSA reserves 987-65-4320 to 
 | Scenario | SSN | State | Result |
 |---|---|---|---|
 | New customer | 987-65-4320 | CA | Approved |
-| Same SSN, new amount or address | 987-65-4320 | TX | Approved; overwrites the customer and application, same reference |
+| Same SSN, new amount or address | 987-65-4320 | TX | Approved; overwrites the customer and loan application, same reference |
 | State not served | 987-65-4321 | NY | Denied: `StateNotServed` |
 | Blocklisted | 987-65-4329 | FL | Denied: `NotEligible` |
 | Both | 987-65-4328 | NY | Denied: `StateNotServed` (the SSN isn't checked) |
@@ -59,11 +59,11 @@ curl -X POST http://localhost:8080/api/v1/applications -H 'Content-Type: applica
   "state": "CA", "companyName": "Acme Corp", "ssn": "987-65-4320", "requestedAmount": 50000 }'
 ```
 
-Within 30 seconds of an approval, the application shows up at http://localhost:8081/applications.
+Within 30 seconds of an approval, the loan application shows up at http://localhost:8081/applications.
 
 To simulate an external partner outage:
 1. `docker compose -f infra/docker-compose.yml stop external-partner`
-2. Submit an application. Warnings appear in the dashboard's structured logs.
+2. Submit a loan application. Warnings appear in the dashboard's structured logs.
 3. `docker compose -f infra/docker-compose.yml start external-partner`. The next worker tick delivers it.
 
 ## Develop without containers
