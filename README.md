@@ -1,10 +1,11 @@
 # Loan application
 
-A business loan application:
-- a Next.js form
-- a .NET 10 API that decides on each loan application
-- PostgreSQL
-- an outbox worker that sends approved loan applications to an external partner (mocked here)
+Apply for a business loan and get a decision right away. Approved applications are saved and sent to an external partner.
+
+- `web/`: a Next.js form
+- `backend/`: a .NET 10 API that decides and saves, with an outbox worker that sends approvals to the partner
+- `partner/`: a mock of the external partner
+- `infra/`: Docker Compose (PostgreSQL, the services above, a dashboard) and the k6 load test
 
 How it's built and why: [ARCHITECTURE.md](ARCHITECTURE.md).
 
@@ -25,7 +26,7 @@ make up       # builds and starts everything
 | Dashboard: logs, traces, metrics | http://localhost:18888 |
 
 - `make down` stops everything and keeps the database. `docker compose -f infra/docker-compose.yml down -v` deletes the database too.
-- `make fclean` leaves the folder as if just cloned. It stops and deletes the containers, the database, the images the stack built or pulled (the .NET and Node base images stay), and every git-ignored file: build output, `node_modules`, and also any `.env` or editor settings. Docker's build cache stays, because it can't be deleted per project; `docker builder prune` clears it for the whole machine.
+- `make fclean` leaves the folder as if just cloned: it deletes the containers, the database, the images the stack built or pulled, and every git-ignored file (build output, `node_modules`, and any `.env` or editor settings). The .NET and Node base images and Docker's build cache stay; `docker builder prune` clears the cache for the whole machine.
 - On WSL, keep a terminal open while you use the app; WSL stops the containers when its last session closes.
 
 ## Test
@@ -65,7 +66,7 @@ Within a second of an approval, the loan application shows up at http://localhos
 To simulate an external partner outage:
 1. `docker compose -f infra/docker-compose.yml stop external-partner`
 2. Submit a loan application. Warnings appear in the dashboard's structured logs.
-3. `docker compose -f infra/docker-compose.yml start external-partner`. If it's back within about 10 seconds, the next tick delivers the message. Otherwise the message is dead-lettered after 10 failed attempts; the replay query in [ARCHITECTURE.md](ARCHITECTURE.md#outbox-worker) sends it again.
+3. `docker compose -f infra/docker-compose.yml start external-partner`. Within about 10 seconds of the first failure, the next tick delivers the message. After that it's dead-lettered, and the replay query in [ARCHITECTURE.md](ARCHITECTURE.md#outbox-worker) sends it again.
 
 ## Develop without containers
 
@@ -76,6 +77,5 @@ To simulate an external partner outage:
 | External partner mock | `dotnet run --project partner/ExternalPartner.Mock`, on http://localhost:8081 |
 | Web | `cd web && npm ci && npm run dev`, on http://localhost:3000 |
 
-Run `dotnet` commands for the backend (tests, `dotnet ef`) from `backend/`, where its `global.json`, tool manifest and solution are.
-
-Next.js (Turbopack) can't build from a folder whose path contains `#`. If yours does, move the repository.
+- Run `dotnet` commands for the backend (tests, `dotnet ef`) from `backend/`, where its `global.json`, tool manifest and solution are.
+- Next.js (Turbopack) can't build from a folder whose path contains `#`.
