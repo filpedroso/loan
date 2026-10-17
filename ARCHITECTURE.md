@@ -89,7 +89,8 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 ## Observability
 
 - The API sends logs, traces and metrics over OTLP to the Aspire Dashboard (http://localhost:18888) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. During `make load`, only 1 in 10 requests is traced.
-- Traces cover requests, partner calls and the PostgreSQL commands inside a request. The worker's polling queries aren't traced. A delivery is its own trace, linked to its request by the loan application id, which the API returns and the worker logs.
+- Logs cover every decision (a denial with its reason and the applicant's state, an approval with its loan application id), every failed delivery attempt, dead letters and successful deliveries. They never include the SSN, name or address.
+- Traces cover requests, partner calls and the PostgreSQL commands inside a request. The worker's polling queries aren't traced. A delivery is its own trace, linked to its request by the loan application id, which both the approval and the delivery log.
 - `/health` checks the database.
 
 ## Trade-offs
