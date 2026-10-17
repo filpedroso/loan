@@ -85,6 +85,7 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 ## Observability
 
 - The API sends logs, traces and metrics over OTLP to the Aspire Dashboard (http://localhost:18888) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+- Traces cover incoming requests, CRM calls and every PostgreSQL command, so a slow request shows where its time went. Metrics include the database connection pool.
 - `/health` checks the database.
 - A worker delivery is a separate trace from the request that created it; the application id in the logs connects them.
 

@@ -6,6 +6,7 @@ using Loans.Application;
 using Loans.Domain.Decisions;
 using Loans.Infrastructure;
 using Loans.Infrastructure.Persistence;
+using Npgsql;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -49,8 +50,9 @@ if (!string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
 {
     builder.Services.AddOpenTelemetry()
         .ConfigureResource(resource => resource.AddService("loans-api"))
-        .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation())
-        .WithMetrics(metrics => metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation())
+        // Npgsql: a span per database command, so a slow trace shows time spent in PostgreSQL, and pool metrics.
+        .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddNpgsql())
+        .WithMetrics(metrics => metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddNpgsqlInstrumentation())
         // Without the formatted message, the dashboard shows the raw template, e.g. "{elapsed}ms".
         .WithLogging(configureBuilder: null, configureOptions: logging => logging.IncludeFormattedMessage = true)
         .UseOtlpExporter();
