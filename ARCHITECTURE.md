@@ -13,12 +13,14 @@ The API decides right away. If it approves, it saves the customer, the applicati
 | Folder | Responsibility | Depends on |
 |---|---|---|
 | `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `Money` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
-| `backend/src/Loans.Application` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
+| `backend/src/Loans.UseCases` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
 | `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, CRM client | Application |
 | `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |
 | `partner/Partner.Mock` | The external CRM, in memory. Has its own build settings, as another company's system would | none |
 | `web` | Next.js form; calls the API from the browser | the API, over HTTP |
 | `infra` | Docker Compose stack and the k6 load test | the images of the above |
+
+The use-case layer is called UseCases rather than Application, so "application" always means a loan application.
 
 Dependencies point inward, and project references enforce it: the Domain can't reference EF Core or ASP.NET. Infrastructure is a separate project, so the worker can move to its own host without the web API.
 

@@ -1,7 +1,7 @@
 using Loans.Domain;
 using Loans.Domain.Customers;
 
-namespace Loans.Application;
+namespace Loans.UseCases;
 
 /// <summary>Port for storing customers. Implemented by Infrastructure.</summary>
 public interface ICustomerRepository

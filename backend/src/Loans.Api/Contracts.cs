@@ -1,5 +1,5 @@
-using Loans.Application;
 using Loans.Domain.Decisions;
+using Loans.UseCases;
 
 namespace Loans.Api;
 

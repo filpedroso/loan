@@ -1,8 +1,8 @@
-using Loans.Application;
 using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Infrastructure.Outbox;
 using Loans.Infrastructure.Security;
+using Loans.UseCases;
 using Microsoft.EntityFrameworkCore;
 
 namespace Loans.Infrastructure.Persistence;

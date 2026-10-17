@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 COPY global.json Directory.Build.props nuget.config ./
 COPY src/Loans.Domain/Loans.Domain.csproj src/Loans.Domain/
-COPY src/Loans.Application/Loans.Application.csproj src/Loans.Application/
+COPY src/Loans.UseCases/Loans.UseCases.csproj src/Loans.UseCases/
 COPY src/Loans.Infrastructure/Loans.Infrastructure.csproj src/Loans.Infrastructure/
 COPY src/Loans.Api/Loans.Api.csproj src/Loans.Api/
 RUN dotnet restore src/Loans.Api/Loans.Api.csproj

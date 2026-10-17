@@ -6,7 +6,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Loans.Application\Loans.Application.csproj" />
+    <ProjectReference Include="..\Loans.UseCases\Loans.UseCases.csproj" />
   </ItemGroup>
 
   <ItemGroup>

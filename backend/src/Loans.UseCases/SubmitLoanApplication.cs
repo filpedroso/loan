@@ -2,7 +2,7 @@ using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Domain.Decisions;
 
-namespace Loans.Application;
+namespace Loans.UseCases;
 
 /// <summary>The use case: decide on a loan application and, if approved, save it and schedule the CRM sync.</summary>
 public sealed class SubmitLoanApplication(ICustomerRepository customers, DecisionEngine engine)

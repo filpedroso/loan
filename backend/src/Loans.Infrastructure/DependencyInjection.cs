@@ -1,9 +1,9 @@
-using Loans.Application;
 using Loans.Domain.Decisions;
 using Loans.Infrastructure.Crm;
 using Loans.Infrastructure.Outbox;
 using Loans.Infrastructure.Persistence;
 using Loans.Infrastructure.Security;
+using Loans.UseCases;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

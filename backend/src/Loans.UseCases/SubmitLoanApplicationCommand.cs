@@ -1,4 +1,4 @@
-namespace Loans.Application;
+namespace Loans.UseCases;
 
 public sealed record SubmitLoanApplicationCommand(
     string FirstName,

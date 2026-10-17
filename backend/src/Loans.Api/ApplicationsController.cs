@@ -1,4 +1,4 @@
-using Loans.Application;
+using Loans.UseCases;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 

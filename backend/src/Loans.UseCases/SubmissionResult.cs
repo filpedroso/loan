@@ -1,6 +1,6 @@
 using Loans.Domain.Decisions;
 
-namespace Loans.Application;
+namespace Loans.UseCases;
 
 public sealed record SubmissionResult(Guid? ApplicationId, IReadOnlyList<DenialReason> Reasons)
 {
