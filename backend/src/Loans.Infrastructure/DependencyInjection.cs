@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Loans.Domain.Decisions;
 using Loans.Infrastructure.ExternalPartner;
 using Loans.Infrastructure.Outbox;
@@ -17,7 +18,11 @@ public static class DependencyInjection
     {
         services.AddSingleton(sp => SsnProtector.FromConfiguration(sp.GetRequiredService<IConfiguration>()));
         services.AddDbContext<LoansDbContext>((sp, options) => options
-            .UseNpgsql(sp.GetRequiredService<IConfiguration>().GetConnectionString("Loans"))
+            .UseNpgsql(sp.GetRequiredService<IConfiguration>().GetConnectionString("Loans"), npgsql => npgsql
+                // Trace a command only as part of something else, like a request. Otherwise the outbox worker's
+                // polling query adds a trace to the dashboard every second.
+                .ConfigureDataSource(dataSource => dataSource.ConfigureTracing(tracing =>
+                    tracing.ConfigureCommandFilter(_ => Activity.Current is not null))))
             .UseSnakeCaseNamingConvention());
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ISsnBlocklist, SsnBlocklist>();

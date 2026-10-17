@@ -86,7 +86,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 ## Observability
 
 - The API sends logs, traces and metrics over OTLP to the Aspire Dashboard (http://localhost:18888) when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
-- Traces cover incoming requests, calls to the external partner and every PostgreSQL command, so a slow request shows where its time went. Metrics include the database connection pool.
+- Traces cover incoming requests, calls to the external partner and the PostgreSQL commands inside a request, so a slow request shows where its time went. The worker's database commands aren't traced; its polling would add a trace every second. Metrics include the database connection pool.
 - During `make load` only 1 in 10 requests gets a trace (`OTEL_TRACES_SAMPLER_ARG`), so the dashboard's own work doesn't skew the result.
 - `/health` checks the database.
 - A worker delivery is a separate trace from the request that created it. The worker logs the loan application id, which is the id the API returned; the request path logs nothing.
