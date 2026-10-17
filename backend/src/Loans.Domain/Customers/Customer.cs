@@ -57,6 +57,8 @@ public sealed class Customer
             throw new ValidationException(field, "Is required.");
         if (trimmed.Length > maxLength)
             throw new ValidationException(field, $"Must be at most {maxLength} characters.");
+        if (trimmed.Any(char.IsControl)) // PostgreSQL rejects NUL, and no field needs line breaks or tabs.
+            throw new ValidationException(field, "Can't contain control characters.");
 
         return trimmed;
     }

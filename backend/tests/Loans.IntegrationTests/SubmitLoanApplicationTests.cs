@@ -79,6 +79,17 @@ public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture
         Assert.Null(await factory.FindCustomerAsync(ssn));
     }
 
+    [Fact]
+    public async Task A_blocklist_seed_missing_from_the_database_is_restored_on_start()
+    {
+        await factory.ExecuteSqlAsync("DELETE FROM blocklist");
+
+        await factory.Services.InitializeDatabaseAsync(TestContext.Current.CancellationToken);
+
+        var response = await client.SubmitAsync(TestApi.Form("987-65-4329"));
+        Assert.Equal("NotEligible", response.Reason);
+    }
+
     [Theory]
     [InlineData("123", 1500, "ssn")]
     [InlineData("666-12-3456", 0, "requestedAmount")]

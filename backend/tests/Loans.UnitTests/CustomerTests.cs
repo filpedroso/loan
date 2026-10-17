@@ -25,6 +25,7 @@ public class CustomerTests
     [InlineData("Jane", "Doe", "", "CA", "Acme", "Address")]
     [InlineData("Jane", "Doe", "1 Main St", "XX", "Acme", "State")]
     [InlineData("Jane", "Doe", "1 Main St", "CA", "", "CompanyName")]
+    [InlineData("Ja\u0000ne", "Doe", "1 Main St", "CA", "Acme", "FirstName")]
     public void Register_rejects_invalid_details(
         string firstName, string lastName, string address, string state, string companyName, string field)
     {

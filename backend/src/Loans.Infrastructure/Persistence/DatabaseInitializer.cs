@@ -10,7 +10,7 @@ public static class DatabaseInitializer
 {
     /// <summary>
     /// Applies migrations (EF Core takes a database lock, so replicas starting together don't conflict),
-    /// then seeds the blocklist from <c>Blocklist:Seed</c> if it's empty.
+    /// then adds the SSNs in <c>Blocklist:Seed</c> that the blocklist doesn't have yet.
     /// </summary>
     public static async Task InitializeDatabaseAsync(this IServiceProvider services, CancellationToken ct = default)
     {
@@ -18,17 +18,16 @@ public static class DatabaseInitializer
         var db = scope.ServiceProvider.GetRequiredService<LoansDbContext>();
         await db.Database.MigrateAsync(ct);
 
-        if (await db.Blocklist.AnyAsync(ct))
-            return;
-
+        // Every SSN is parsed before anything is written, so a typo stops startup with nothing half-seeded.
         var ssnProtector = scope.ServiceProvider.GetRequiredService<SsnProtector>();
-        var seed = scope.ServiceProvider.GetRequiredService<IConfiguration>()
-            .GetSection("Blocklist:Seed").Get<string[]>() ?? [];
-        foreach (var ssn in seed)
-        {
-            // ON CONFLICT: another replica may be seeding at the same time.
-            var hash = ssnProtector.Hash(Ssn.Parse(ssn));
+        var hashes = (scope.ServiceProvider.GetRequiredService<IConfiguration>()
+                .GetSection("Blocklist:Seed").Get<string[]>() ?? [])
+            .Select(ssn => ssnProtector.Hash(Ssn.Parse(ssn)))
+            .ToList();
+
+        // Runs on every start, so SSNs added to the seed later are inserted too. ON CONFLICT skips the ones
+        // already there, including any another replica inserts at the same time.
+        foreach (var hash in hashes)
             await db.Database.ExecuteSqlAsync($"INSERT INTO blocklist (ssn_hash) VALUES ({hash}) ON CONFLICT DO NOTHING", ct);
-        }
     }
 }
