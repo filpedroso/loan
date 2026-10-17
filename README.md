@@ -1,5 +1,7 @@
 # Loan application
 
+## Video showing the app working: https://youtu.be/dpxFfiI6-xM
+
 Apply for a business loan and get a decision right away. Approved applications are saved and sent to an external partner.
 
 - `web/`: a Next.js form
