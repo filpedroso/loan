@@ -25,6 +25,7 @@ make up       # builds and starts everything
 | Dashboard: logs, traces, metrics | http://localhost:18888 |
 
 - `make down` stops everything and keeps the database. `docker compose -f infra/docker-compose.yml down -v` deletes the database too.
+- `make fclean` leaves the folder as if just cloned. It stops and deletes the containers, the database, the images the stack built or pulled (the .NET and Node base images stay), and every git-ignored file: build output, `node_modules`, and also any `.env` or editor settings. Docker's build cache stays, because it can't be deleted per project; `docker builder prune` clears it for the whole machine.
 - On WSL, keep a terminal open while you use the app; WSL stops the containers when its last session closes.
 
 ## Test

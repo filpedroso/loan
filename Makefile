@@ -1,6 +1,6 @@
 # Loan app. Everything runs in Docker. On Windows, run make from WSL.
 .DEFAULT_GOAL := help
-.PHONY: help doctor up down test load
+.PHONY: help doctor up down test load fclean
 
 ifeq ($(OS),Windows_NT)
 $(error On Windows, run make from WSL (Ubuntu); see README.md)
@@ -48,3 +48,7 @@ load: export TRACE_SAMPLE_RATIO = 0.1
 load: ## Load test the API with k6 (traces 1 in 10 requests until the next make up)
 	$(COMPOSE) up -d api
 	$(COMPOSE) --profile load run --rm k6
+
+fclean: ## Delete everything: containers, database, images and git-ignored files, as if just cloned
+	$(COMPOSE) --profile load down --volumes --rmi all --remove-orphans
+	git clean -fdX
