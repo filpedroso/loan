@@ -4,4 +4,9 @@
     <ProjectReference Include="..\Loans.Domain\Loans.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The ILogger interface only; the host provides the implementation. -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.13" />
+  </ItemGroup>
+
 </Project>

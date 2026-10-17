@@ -1,10 +1,12 @@
 using Loans.Domain.Customers;
 using Loans.Domain.Decisions;
+using Microsoft.Extensions.Logging;
 
 namespace Loans.UseCases;
 
 /// <summary>The use case: decide on a loan application and, if approved, save it and schedule the external partner sync.</summary>
-public sealed class SubmitLoanApplication(ICustomerRepository customers, DecisionEngine engine)
+public sealed class SubmitLoanApplication(
+    ICustomerRepository customers, DecisionEngine engine, ILogger<SubmitLoanApplication> logger)
 {
     public async Task<SubmissionResult> HandleAsync(SubmitLoanApplicationCommand command, CancellationToken ct)
     {
@@ -26,10 +28,15 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
         var loanApplication = customer.Apply(amount);
 
         var decision = await engine.DecideAsync(customer, ct);
+        // Logs never include the SSN, name or address.
         if (decision.Reason is { } reason)
+        {
+            logger.LogInformation("Denied a loan application from {State}: {Reason}.", customer.State, reason);
             return SubmissionResult.Denied(reason); // Nothing is saved, so nothing reaches the partner.
+        }
 
         await customers.SaveAsync(customer, ct);
+        logger.LogInformation("Approved loan application {LoanApplicationId}.", loanApplication.Id);
         return SubmissionResult.Approved(loanApplication.Id);
     }
 }
