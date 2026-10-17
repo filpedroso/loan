@@ -32,18 +32,18 @@ make up       # builds and starts everything
 ## Test
 
 ```bash
-make test   # unit + integration tests; needs the .NET 10 SDK and Docker
+make test   # backend unit + integration tests and frontend tests; needs the .NET 10 SDK, Node and Docker
 make load   # k6 against the running stack: 10 s warm-up, then 100 requests/s for 30 s; must keep p95 < 200 ms and < 1% errors
 ```
 
 - Integration tests start a throwaway PostgreSQL with Testcontainers.
 - `make load` restarts the API tracing only 1 in 10 requests, so the dashboard's own work doesn't skew the result. The next `make up` traces every request again.
 - k6 waits for `/health` and warms the API up before measuring. Only the measured 30 s count toward the thresholds.
-- Frontend checks: `cd web && npm ci && npm run lint && npm run typecheck`.
+- Frontend checks: `cd web && npm ci && npm run lint && npm run typecheck && npm test`.
 
 ## Sample data
 
-None of these SSNs can belong to a real person: the SSA reserves 987-65-4320 to 987-65-4329 for advertising, and never issues SSNs starting with 666. The blocklist is seeded with `987-65-4328` and `987-65-4329` (`Blocklist:Seed` in `appsettings.json`).
+None of these SSNs can belong to a real person. The blocklist is seeded with `987-65-4328` and `987-65-4329` (`Blocklist:Seed` in `appsettings.json`).
 
 | Scenario | SSN | State | Result |
 |---|---|---|---|
@@ -53,29 +53,4 @@ None of these SSNs can belong to a real person: the SSA reserves 987-65-4320 to 
 | Blocklisted | 987-65-4329 | FL | Denied: `NotEligible` |
 | Both | 987-65-4328 | NY | Denied: `StateNotServed` (the SSN isn't checked) |
 
-Without the web app:
-
-```bash
-curl -X POST http://localhost:8080/api/v1/applications -H 'Content-Type: application/json' -d '{
-  "firstName": "Jane", "lastName": "Doe", "address": "1 Main St, Springfield, IL 62701",
-  "state": "CA", "companyName": "Acme Corp", "ssn": "987-65-4320", "requestedAmount": 50000 }'
-```
-
 Within a second of an approval, the loan application shows up at http://localhost:8081/applications.
-
-To simulate an external partner outage:
-1. `docker compose -f infra/docker-compose.yml stop external-partner`
-2. Submit a loan application. Warnings appear in the dashboard's structured logs.
-3. `docker compose -f infra/docker-compose.yml start external-partner`. Within about 10 seconds of the first failure, the next tick delivers the message. After that it's dead-lettered, and the replay query in [ARCHITECTURE.md](ARCHITECTURE.md#outbox-worker) sends it again.
-
-## Develop without containers
-
-| Part | How to run it |
-|---|---|
-| Database | `docker compose -f infra/docker-compose.yml up -d postgres` |
-| API | `dotnet run --project backend/src/Loans.Api`, on http://localhost:8080, using `appsettings.Development.json` |
-| External partner mock | `dotnet run --project partner/ExternalPartner.Mock`, on http://localhost:8081 |
-| Web | `cd web && npm ci && npm run dev`, on http://localhost:3000 |
-
-- Run `dotnet` commands for the backend (tests, `dotnet ef`) from `backend/`, where its `global.json`, tool manifest and solution are.
-- Next.js (Turbopack) can't build from a folder whose path contains `#`.
