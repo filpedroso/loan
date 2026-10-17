@@ -26,7 +26,8 @@ services:
     ports:
       - "8080:8080"
     environment:
-      ConnectionStrings__Loans: "Host=postgres;Database=loans;Username=loans;Password=loans"
+      # No Kerberos here; without this Npgsql tries GSS encryption and logs a missing libgssapi_krb5.
+      ConnectionStrings__Loans: "Host=postgres;Database=loans;Username=loans;Password=loans;Gss Encryption Mode=Disable"
       ExternalPartner__BaseUrl: "http://external-partner:8080/"
       Cors__AllowedOrigins__0: "http://localhost:3000"
       # Local-only keys. In production they come from a secret store.
