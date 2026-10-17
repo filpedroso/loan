@@ -11,7 +11,7 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
         var ssn = Ssn.Parse(command.Ssn);
         var amount = RequestedAmount.Of(command.RequestedAmount);
 
-        var customer = await customers.FindBySsnAsync(ssn, ct);
+        var customer = await customers.LockAndFindBySsnAsync(ssn, ct);
         if (customer is null)
         {
             customer = Customer.Register(
@@ -27,9 +27,9 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
 
         var decision = await engine.DecideAsync(customer, ct);
         if (!decision.Approved)
-            return SubmissionResult.Denied(decision.Reasons); // Nothing is saved.
+            return SubmissionResult.Denied(decision.Reasons); // Nothing is saved, so nothing reaches the partner.
 
-        await customers.SaveApprovedAsync(customer, ct);
+        await customers.SaveAsync(customer, ct);
         return SubmissionResult.Approved(loanApplication.Id);
     }
 }

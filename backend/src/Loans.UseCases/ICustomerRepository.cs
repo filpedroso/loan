@@ -6,11 +6,14 @@ namespace Loans.UseCases;
 public interface ICustomerRepository
 {
     /// <summary>
-    /// Loads the customer with their loan application, and reserves the SSN until the request ends,
-    /// so submissions for the same SSN take turns.
+    /// Locks the SSN until the request ends, so submissions for the same SSN take turns, then loads the customer
+    /// with their loan application. Call it before <see cref="SaveAsync"/>.
     /// </summary>
-    Task<Customer?> FindBySsnAsync(Ssn ssn, CancellationToken ct);
+    Task<Customer?> LockAndFindBySsnAsync(Ssn ssn, CancellationToken ct);
 
-    /// <summary>Saves the customer, their loan application and the external partner sync message, in one transaction.</summary>
-    Task SaveApprovedAsync(Customer customer, CancellationToken ct);
+    /// <summary>
+    /// Saves the customer and their loan application in one transaction. Every saved loan application is synced
+    /// to the external partner.
+    /// </summary>
+    Task SaveAsync(Customer customer, CancellationToken ct);
 }

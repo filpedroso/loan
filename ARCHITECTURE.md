@@ -28,9 +28,9 @@ Dependencies point inward, and project references enforce it: the Domain can't r
 
 1. The controller maps the JSON to a command and calls `SubmitLoanApplication`.
 2. The service creates the value objects. They validate themselves; invalid input becomes a 400 that names the field.
-3. It loads the customer by SSN. A returning customer is updated (`UpdateDetails`); a new one is registered (`Register`). `customer.Apply(amount)` creates the application, or overwrites its amount and keeps its id.
+3. `LockAndFindBySsnAsync` locks the SSN and loads the customer. A returning customer is updated (`UpdateDetails`); a new one is registered (`Register`). `customer.Apply(amount)` creates the loan application, or overwrites its amount and keeps its id.
 4. `DecisionEngine` evaluates the customer. A denial returns 200 with reason codes, and nothing is saved.
-5. `SaveApprovedAsync` saves customer, application and outbox message, and the API returns 200 with the application id.
+5. `SaveAsync` saves customer, loan application and outbox message, and the API returns 200 with the loan application id. Every saved loan application is synced to the external partner, and only approvals are saved.
 
 ## Decision engine
 
@@ -121,5 +121,6 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - Run the worker as an Azure Function on a timer trigger, calling the same `OutboxDispatcher`, with `Outbox:Enabled=false` in the API.
 - Wake the worker right after a commit with PostgreSQL `LISTEN/NOTIFY` instead of waiting for the next tick.
 - Exponential backoff with a `next_attempt_at` column, and parallel sends within a batch.
+- Raise a `LoanApplicationApproved` domain event instead, once denials are stored or a second thing reacts to an approval (an email, analytics).
 - Several workers: claim messages with `FOR UPDATE SKIP LOCKED`, and keep one pending row per loan application so an older payload can't arrive after a newer one.
 - Secrets in Azure Key Vault with managed identity; HTTPS terminated at the ingress.
