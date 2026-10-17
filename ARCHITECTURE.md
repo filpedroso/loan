@@ -29,18 +29,18 @@ Dependencies point inward, and project references enforce it: the Domain can't r
 1. The controller maps the JSON to a command and calls `SubmitLoanApplication`.
 2. The service creates the value objects. They validate themselves; invalid input becomes a 400 that names the field.
 3. `LockAndFindBySsnAsync` locks the SSN and loads the customer. A returning customer is updated (`UpdateDetails`); a new one is registered (`Register`). `customer.Apply(amount)` creates the loan application, or overwrites its amount and keeps its id.
-4. `DecisionEngine` evaluates the customer. A denial returns 200 with reason codes, and nothing is saved.
+4. `DecisionEngine` evaluates the customer. A denial returns 200 with its reason, and nothing is saved.
 5. `SaveAsync` saves customer, loan application and outbox message, and the API returns 200 with the loan application id. Every saved loan application is synced to the external partner, and only approvals are saved.
 
 ## Decision engine
 
 - A rule implements `IDecisionRule`: one `Reason` and `ValueTask<bool> IsSatisfiedAsync(Customer)`. Synchronous rules return a completed `ValueTask` at no cost; only the blocklist rule does I/O.
-- The engine runs every rule without stopping at the first failure, so a denial lists all its reasons.
+- The engine runs the rules in registration order and stops at the first failure, so a denial has one reason. The state rule runs first, so an applicant from a state we don't serve never has their SSN checked.
 - Rules today:
   - `StateServedRule`: states listed in `Decision:BlockedStates`, default `NY`.
   - `SsnNotBlocklistedRule`: checks the SSN through `ISsnBlocklist`.
-- To add a rule, write a class and add one line in `Program.cs`. No existing rule changes.
-- The API turns `SsnBlocklisted` into the generic `NotEligible`. Otherwise anyone could test SSNs against the blocklist.
+- To add a rule, write a class and register it in `Program.cs`, in the order it should run. No existing rule changes. A rule with a new reason also needs a `DenialReason` value, its public code in `Contracts.cs`, and its text on the web's denial page.
+- The API reports `SsnBlocklisted` as the generic `NotEligible`, so nobody is told they're on a blocklist. That's about respect, not secrecy: approved versus denied still reveals whether an SSN is blocklisted.
 
 ## Transaction and failures midway
 
@@ -113,7 +113,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - Delivered outbox rows are never deleted. A cleanup job should remove old ones.
 - Dead letters are only visible in logs and SQL; there's no replay tool.
 - SSN key rotation isn't supported. It would need re-hashing and re-encrypting.
-- No rate limiting; in production it belongs in the gateway in front of the API.
+- No rate limiting; in production it belongs in the gateway in front of the API. Without it or authentication, anyone can test SSNs against the blocklist, because approved versus denied reveals it.
 - The frontend has no automated tests.
 
 ## Scaling up

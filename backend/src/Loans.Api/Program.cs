@@ -13,7 +13,8 @@ using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Domain and use cases: the decision rules (in order), the engine and the use case.
+// Domain and use cases: the decision rules, the engine and the use case. The engine stops at the first failing
+// rule, so the state rule goes first: an applicant from a state we don't serve never has their SSN checked.
 builder.Services.AddSingleton<IDecisionRule>(sp => new StateServedRule(
     (sp.GetRequiredService<IConfiguration>().GetSection("Decision:BlockedStates").Get<string[]>() ?? [])
     .ToFrozenSet(StringComparer.OrdinalIgnoreCase)));

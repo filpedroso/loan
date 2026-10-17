@@ -16,28 +16,36 @@ public class DecisionEngineTests
         var decision = await engine.DecideAsync(AnyCustomer, TestContext.Current.CancellationToken);
 
         Assert.True(decision.Approved);
-        Assert.Empty(decision.Reasons);
+        Assert.Null(decision.Reason);
     }
 
     [Fact]
-    public async Task Denies_with_the_reason_of_every_failing_rule()
+    public async Task Denies_with_the_first_failing_rule_and_skips_the_rest()
     {
+        var skipped = new FixedRule(false, DenialReason.SsnBlocklisted);
         var engine = new DecisionEngine([
+            new FixedRule(true, DenialReason.SsnBlocklisted),
             new FixedRule(false, DenialReason.StateNotServed),
-            new FixedRule(true, DenialReason.StateNotServed),
-            new FixedRule(false, DenialReason.SsnBlocklisted),
+            skipped,
         ]);
 
         var decision = await engine.DecideAsync(AnyCustomer, TestContext.Current.CancellationToken);
 
         Assert.False(decision.Approved);
-        Assert.Equal([DenialReason.StateNotServed, DenialReason.SsnBlocklisted], decision.Reasons);
+        Assert.Equal(DenialReason.StateNotServed, decision.Reason);
+        Assert.False(skipped.Evaluated);
     }
 
     private sealed class FixedRule(bool satisfied, DenialReason reason) : IDecisionRule
     {
+        public bool Evaluated { get; private set; }
+
         public DenialReason Reason => reason;
 
-        public ValueTask<bool> IsSatisfiedAsync(Customer customer, CancellationToken ct) => ValueTask.FromResult(satisfied);
+        public ValueTask<bool> IsSatisfiedAsync(Customer customer, CancellationToken ct)
+        {
+            Evaluated = true;
+            return ValueTask.FromResult(satisfied);
+        }
     }
 }

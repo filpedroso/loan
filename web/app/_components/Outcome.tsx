@@ -72,9 +72,9 @@ export function Approved({ firstName, amount, applicationId, onRestart }: Approv
   );
 }
 
-type DeniedProps = { reasons: PublicReason[]; state: string; onEdit: () => void; onRestart: () => void };
+type DeniedProps = { reason: PublicReason | null; state: string; onEdit: () => void; onRestart: () => void };
 
-export function Denied({ reasons, state, onEdit, onRestart }: DeniedProps) {
+export function Denied({ reason, state, onEdit, onRestart }: DeniedProps) {
   return (
     <div>
       <Header
@@ -86,13 +86,13 @@ export function Denied({ reasons, state, onEdit, onRestart }: DeniedProps) {
       </Header>
 
       <div className="mt-8 space-y-4 text-slate-700">
-        {reasons.includes("StateNotServed") && (
+        {reason === "StateNotServed" && (
           <p>
             We’re not able to offer loans in {stateName(state)} at the moment. This is about where we operate, not about
             you.
           </p>
         )}
-        {reasons.includes("NotEligible") && (
+        {reason === "NotEligible" && (
           <p>
             Based on the information provided, we’re unable to approve this application. This isn’t a judgment of you or
             your business.

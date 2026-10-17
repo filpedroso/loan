@@ -17,16 +17,7 @@ public sealed record SubmitLoanApplicationRequest(
         FirstName ?? "", LastName ?? "", Address ?? "", State ?? "", CompanyName ?? "", Ssn ?? "", RequestedAmount);
 }
 
-public enum Outcome
-{
-    Approved,
-    Denied,
-}
-
-/// <summary>
-/// Reason codes shown to the applicant. The blocklist stays generic, so the API can't be used to test
-/// SSNs against it.
-/// </summary>
+/// <summary>Reason codes shown to the applicant. Nobody is told they're on a blocklist; they're "not eligible".</summary>
 public enum PublicReason
 {
     StateNotServed,
@@ -34,12 +25,12 @@ public enum PublicReason
 }
 
 /// <summary>The public JSON keeps the short name <c>applicationId</c>.</summary>
-public sealed record SubmitLoanApplicationResponse(Outcome Decision, Guid? ApplicationId, IReadOnlyList<PublicReason> Reasons)
+public sealed record SubmitLoanApplicationResponse(bool Approved, Guid? ApplicationId, PublicReason? Reason)
 {
     public static SubmitLoanApplicationResponse From(SubmissionResult result) => new(
-        result.IsApproved ? Outcome.Approved : Outcome.Denied,
+        result.IsApproved,
         result.LoanApplicationId,
-        result.Reasons.Select(ToPublic).ToList());
+        result.Reason is { } reason ? ToPublic(reason) : null);
 
     private static PublicReason ToPublic(DenialReason reason) => reason switch
     {

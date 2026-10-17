@@ -4,16 +4,18 @@ namespace Loans.Domain.Decisions;
 
 public sealed class DecisionEngine(IEnumerable<IDecisionRule> rules)
 {
-    /// <summary>Runs every rule, without stopping at the first failure, so a denial lists all its reasons.</summary>
+    /// <summary>
+    /// Runs the rules in order and stops at the first one that fails, so a denial has one reason and later rules,
+    /// like the blocklist lookup, don't run once the outcome is known.
+    /// </summary>
     public async Task<Decision> DecideAsync(Customer customer, CancellationToken ct)
     {
-        var reasons = new List<DenialReason>();
         foreach (var rule in rules)
         {
             if (!await rule.IsSatisfiedAsync(customer, ct))
-                reasons.Add(rule.Reason);
+                return new Decision(rule.Reason);
         }
 
-        return new Decision(reasons);
+        return new Decision(null);
     }
 }

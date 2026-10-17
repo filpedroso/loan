@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Loans.IntegrationTests;
 
-public sealed record SubmitResponse(string Decision, Guid? ApplicationId, string[] Reasons);
+public sealed record SubmitResponse(bool Approved, Guid? ApplicationId, string? Reason);
 
 /// <summary>Helpers shared by the integration tests.</summary>
 public static class TestApi

@@ -19,8 +19,8 @@ public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture
 
         var response = await client.SubmitAsync(TestApi.Form(ssn, amount: 1500m));
 
-        Assert.Equal("Approved", response.Decision);
-        Assert.Empty(response.Reasons);
+        Assert.True(response.Approved);
+        Assert.Null(response.Reason);
         var customer = await factory.FindCustomerAsync(ssn);
         Assert.NotNull(customer);
         Assert.Equal(Ssn.Parse(ssn), customer.Ssn);
@@ -55,7 +55,7 @@ public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture
 
         var second = await client.SubmitAsync(TestApi.Form(ssn, state: "TX", amount: 2500m, firstName: "Janet"));
 
-        Assert.Equal("Approved", second.Decision);
+        Assert.True(second.Approved);
         Assert.Equal(first.ApplicationId, second.ApplicationId);
         var customer = await factory.FindCustomerAsync(ssn);
         Assert.Equal(("Janet", "TX"), (customer!.FirstName, customer.State));
@@ -64,18 +64,18 @@ public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture
     }
 
     [Theory]
-    [InlineData(null, "NY", new[] { "StateNotServed" })]
-    [InlineData("987-65-4329", "CA", new[] { "NotEligible" })]
-    [InlineData("987-65-4328", "NY", new[] { "StateNotServed", "NotEligible" })]
-    public async Task A_denied_application_is_explained_and_writes_nothing(string? ssn, string state, string[] reasons)
+    [InlineData(null, "NY", "StateNotServed")]
+    [InlineData("987-65-4329", "CA", "NotEligible")]
+    [InlineData("987-65-4328", "NY", "StateNotServed")] // Blocklisted too, but the SSN is never checked.
+    public async Task A_denied_application_is_explained_and_writes_nothing(string? ssn, string state, string reason)
     {
         ssn ??= TestApi.NewSsn();
 
         var response = await client.SubmitAsync(TestApi.Form(ssn, state));
 
-        Assert.Equal("Denied", response.Decision);
+        Assert.False(response.Approved);
         Assert.Null(response.ApplicationId);
-        Assert.Equal(reasons, response.Reasons);
+        Assert.Equal(reason, response.Reason);
         Assert.Null(await factory.FindCustomerAsync(ssn));
     }
 
@@ -120,7 +120,7 @@ public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture
         var responses = await Task.WhenAll(
             Enumerable.Range(1, 10).Select(i => client.SubmitAsync(TestApi.Form(ssn, amount: 1000m + i))));
 
-        Assert.All(responses, r => Assert.Equal("Approved", r.Decision));
+        Assert.All(responses, r => Assert.True(r.Approved));
         var loanApplicationId = Assert.Single(responses.Select(r => r.ApplicationId).Distinct());
         Assert.NotNull(await factory.FindCustomerAsync(ssn));
         Assert.Equal(10, (await factory.OutboxAsync(loanApplicationId!.Value)).Count);

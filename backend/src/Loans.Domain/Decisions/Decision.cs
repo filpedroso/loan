@@ -1,6 +1,7 @@
 namespace Loans.Domain.Decisions;
 
-public sealed record Decision(IReadOnlyList<DenialReason> Reasons)
+/// <summary>Approved, or denied for one reason.</summary>
+public sealed record Decision(DenialReason? Reason)
 {
-    public bool Approved => Reasons.Count == 0;
+    public bool Approved => Reason is null;
 }

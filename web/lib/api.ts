@@ -3,9 +3,9 @@ import { FIELDS, type FieldErrors, type FieldName } from "./application";
 export type PublicReason = "StateNotServed" | "NotEligible";
 
 export type Decision = {
-  decision: "Approved" | "Denied";
+  approved: boolean;
   applicationId: string | null;
-  reasons: PublicReason[];
+  reason: PublicReason | null;
 };
 
 export type SubmitResult =

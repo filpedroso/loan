@@ -22,7 +22,7 @@ type View =
   | { name: "form"; formError?: string }
   | { name: "reviewing" }
   | { name: "approved"; applicationId: string }
-  | { name: "denied"; reasons: PublicReason[] };
+  | { name: "denied"; reason: PublicReason | null };
 
 /** One page, three views: form, handshake while the API decides, then the result. Nothing is kept in the browser. */
 export function LoanApplicationFlow() {
@@ -52,12 +52,8 @@ export function LoanApplicationFlow() {
     const [result] = await Promise.all([submitApplication(toPayload(values)), delay(MIN_REVIEW_MS)]);
 
     if (result.kind === "decision") {
-      const { decision, applicationId, reasons } = result.decision;
-      setView(
-        decision === "Approved" && applicationId
-          ? { name: "approved", applicationId }
-          : { name: "denied", reasons },
-      );
+      const { approved, applicationId, reason } = result.decision;
+      setView(approved && applicationId ? { name: "approved", applicationId } : { name: "denied", reason });
     } else if (result.kind === "invalid") {
       setView({ name: "form" });
       showErrors(result.errors);
@@ -87,7 +83,7 @@ export function LoanApplicationFlow() {
     case "denied":
       return (
         <Denied
-          reasons={view.reasons}
+          reason={view.reason}
           state={values.state}
           onEdit={() => setView({ name: "form" })}
           onRestart={restart}

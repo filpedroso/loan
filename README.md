@@ -49,7 +49,7 @@ None of these SSNs can belong to a real person: the SSA reserves 987-65-4320 to 
 | Same SSN, new amount or address | 987-65-4320 | TX | Approved; overwrites the customer and application, same reference |
 | State not served | 987-65-4321 | NY | Denied: `StateNotServed` |
 | Blocklisted | 987-65-4329 | FL | Denied: `NotEligible` |
-| Both | 987-65-4328 | NY | Denied: both reasons |
+| Both | 987-65-4328 | NY | Denied: `StateNotServed` (the SSN isn't checked) |
 
 Without the web app:
 

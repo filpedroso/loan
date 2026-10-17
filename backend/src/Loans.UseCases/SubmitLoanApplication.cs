@@ -26,8 +26,8 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
         var loanApplication = customer.Apply(amount);
 
         var decision = await engine.DecideAsync(customer, ct);
-        if (!decision.Approved)
-            return SubmissionResult.Denied(decision.Reasons); // Nothing is saved, so nothing reaches the partner.
+        if (decision.Reason is { } reason)
+            return SubmissionResult.Denied(reason); // Nothing is saved, so nothing reaches the partner.
 
         await customers.SaveAsync(customer, ct);
         return SubmissionResult.Approved(loanApplication.Id);
