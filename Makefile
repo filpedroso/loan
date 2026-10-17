@@ -28,7 +28,7 @@ doctor: ## Check the tools this project needs, and print how to install missing 
 	@if command -v docker >/dev/null 2>&1; then echo "  ok       docker"; else echo "  missing  docker: $(INSTALL_DOCKER)"; fi
 	@if docker compose version >/dev/null 2>&1; then echo "  ok       docker compose"; else echo "  missing  docker compose: $(INSTALL_DOCKER)"; fi
 	@if dotnet --list-sdks 2>/dev/null | grep -q '^10\.'; then echo "  ok       .NET 10 SDK"; else echo "  missing  .NET 10 SDK (only for make test): $(INSTALL_DOTNET)"; fi
-	@if command -v node >/dev/null 2>&1; then echo "  ok       node"; else echo "  missing  node (only for frontend work): $(INSTALL_NODE)"; fi
+	@if command -v node >/dev/null 2>&1; then echo "  ok       node"; else echo "  missing  node (for make test and frontend work): $(INSTALL_NODE)"; fi
 
 up: ## Build and start everything
 	$(COMPOSE) up -d --build
@@ -41,8 +41,9 @@ up: ## Build and start everything
 down: ## Stop everything (keeps the database)
 	$(COMPOSE) down
 
-test: ## Run unit and integration tests (needs the .NET 10 SDK and Docker)
+test: ## Run backend and frontend tests (needs the .NET 10 SDK, Node and Docker)
 	cd backend && dotnet test --solution Loans.slnx
+	cd web && npm ci --no-audit --no-fund && npm test
 
 load: export TRACE_SAMPLE_RATIO = 0.1
 load: ## Load test the API with k6 (traces 1 in 10 requests until the next make up)
