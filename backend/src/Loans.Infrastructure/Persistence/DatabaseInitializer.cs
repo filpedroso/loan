@@ -1,6 +1,8 @@
 using Loans.Domain.Customers;
 using Loans.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,6 +18,9 @@ public static class DatabaseInitializer
     {
         await using var scope = services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LoansDbContext>();
+        // EF's own script, so the history table exists before MigrateAsync looks for it. Otherwise a fresh database
+        // logs a harmless "Failed executing DbCommand" for that first lookup.
+        await db.Database.ExecuteSqlRawAsync(db.GetService<IHistoryRepository>().GetCreateIfNotExistsScript(), ct);
         await db.Database.MigrateAsync(ct);
 
         // Every SSN is parsed before anything is written, so a typo stops startup with nothing half-seeded.
