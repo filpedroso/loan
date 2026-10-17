@@ -35,6 +35,7 @@ make load   # k6 against the running stack: 10 s warm-up, then 100 requests/s fo
 ```
 
 - Integration tests start a throwaway PostgreSQL with Testcontainers.
+- `make load` restarts the API tracing only 1 in 10 requests, so the dashboard's own work doesn't skew the result. The next `make up` traces every request again.
 - k6 waits for `/health` and warms the API up before measuring. Only the measured 30 s count toward the thresholds.
 - Frontend checks: `cd web && npm ci && npm run lint && npm run typecheck`.
 

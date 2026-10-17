@@ -32,6 +32,9 @@ services:
       Ssn__HashKey: "xyRKMLQN2eeFC/y2Ygi6lXcBBFZinSl5wV3lFoSwlSM="
       Ssn__EncryptionKey: "wn99p4RG5CX2zk3G7SZeUd0Lc0gr85aB2csTLQAN5ik="
       OTEL_EXPORTER_OTLP_ENDPOINT: "http://aspire-dashboard:18889"
+      # Share of requests that get a trace: all of them, except during `make load`.
+      OTEL_TRACES_SAMPLER: "parentbased_traceidratio"
+      OTEL_TRACES_SAMPLER_ARG: "${TRACE_SAMPLE_RATIO:-1}"
     depends_on:
       postgres:
         condition: service_healthy

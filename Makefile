@@ -44,6 +44,7 @@ down: ## Stop everything (keeps the database)
 test: ## Run unit and integration tests (needs the .NET 10 SDK and Docker)
 	cd backend && dotnet test --solution Loans.slnx
 
-load: ## Load test the API with k6
+load: export TRACE_SAMPLE_RATIO = 0.1
+load: ## Load test the API with k6 (traces 1 in 10 requests until the next make up)
 	$(COMPOSE) up -d api
 	$(COMPOSE) --profile load run --rm k6
