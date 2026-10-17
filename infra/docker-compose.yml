@@ -65,7 +65,7 @@ services:
     image: grafana/k6:1.8.2
     profiles: ["load"]
     volumes:
-      - ./load:/scripts:ro
+      - ./load_test:/scripts:ro
     environment:
       API_URL: "http://api:8080"
     command: run /scripts/submit.js
