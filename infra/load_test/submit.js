@@ -37,11 +37,11 @@ const STATES = ["CA", "TX", "FL", "WA", "IL", "NY"]; // NY is denied, which is a
 
 // Waits until the API answers, so a container that is still starting doesn't count as errors.
 export function setup() {
-  for (let attempt = 0; attempt < 60; attempt++) {
+  for (let attempt = 0; attempt < 30; attempt++) {
     if (http.get(`${API_URL}/health`).status === 200) return;
     sleep(1);
   }
-  fail(`${API_URL}/health didn't answer 200 within 60 s.`);
+  fail(`${API_URL}/health didn't answer 200 within 30 s.`);
 }
 
 // SSNs starting with 666 are never issued, so these can't belong to anyone.
