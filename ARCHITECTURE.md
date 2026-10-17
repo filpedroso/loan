@@ -93,6 +93,31 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - Traces cover requests, partner calls and the PostgreSQL commands inside a request. The worker's polling queries aren't traced. A delivery is its own trace, linked to its request by the loan application id, which both the approval and the delivery log.
 - `/health` checks the database.
 
+## Infrastructure (Docker)
+
+`infra/docker-compose.yml` runs the whole app locally; `make up` builds and starts it.
+
+- `postgres`: PostgreSQL 17, data in a named volume, with a healthcheck the API waits for.
+- `api`: the .NET API (port 8080).
+- `external-partner`: the mock partner (port 8081). Its `GET` endpoint lists what it received.
+- `web`: the Next.js app (port 3000). The browser calls the API directly.
+- `aspire-dashboard`: logs, traces and metrics, at http://localhost:18888.
+- `k6`: a load test. It only runs with the `load` profile, so `make up` doesn't start it.
+
+Services reach each other by name inside the Compose network. The database password and the SSN keys in the file are for local use only; in production they would come from a secret store.
+
+## CI:
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on every push to `main`. Three independent jobs:
+
+| Job | What it checks |
+|---|---|
+| `backend` | `dotnet test` over the whole solution: unit tests and integration tests. The integration tests start a real PostgreSQL with Testcontainers, using the runner's Docker, so the transactional behavior is tested against a real database. |
+| `web` | `npm ci`, lint, typecheck, unit tests and a production build. |
+| `images` | `docker compose build`, to catch a broken Dockerfile or compose file before someone tries to run the stack. |
+
+The .NET and Node versions come from `backend/global.json` and `web/.nvmrc`, the same files used locally, so CI and local runs use the same versions.
+
 ## Trade-offs
 
 What we chose, what we left out, and what we would do next.
