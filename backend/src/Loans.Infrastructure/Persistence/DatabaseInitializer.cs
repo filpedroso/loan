@@ -1,4 +1,4 @@
-using Loans.Domain;
+using Loans.Domain.Customers;
 using Loans.Infrastructure.Security;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;

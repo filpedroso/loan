@@ -41,7 +41,7 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "applications",
+                name: "loan_applications",
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
@@ -50,9 +50,9 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("pk_applications", x => x.id);
+                    table.PrimaryKey("pk_loan_applications", x => x.id);
                     table.ForeignKey(
-                        name: "fk_applications_customers_customer_id",
+                        name: "fk_loan_applications_customers_customer_id",
                         column: x => x.customer_id,
                         principalTable: "customers",
                         principalColumn: "id",
@@ -64,7 +64,7 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 columns: table => new
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
-                    application_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    loan_application_id = table.Column<Guid>(type: "uuid", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     attempts = table.Column<int>(type: "integer", nullable: false),
                     delivered_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true)
@@ -73,18 +73,12 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 {
                     table.PrimaryKey("pk_outbox", x => x.id);
                     table.ForeignKey(
-                        name: "fk_outbox_applications_application_id",
-                        column: x => x.application_id,
-                        principalTable: "applications",
+                        name: "fk_outbox_loan_applications_loan_application_id",
+                        column: x => x.loan_application_id,
+                        principalTable: "loan_applications",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
-
-            migrationBuilder.CreateIndex(
-                name: "ix_applications_customer_id",
-                table: "applications",
-                column: "customer_id",
-                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_customers_ssn_hash",
@@ -93,9 +87,15 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "ix_outbox_application_id",
+                name: "ix_loan_applications_customer_id",
+                table: "loan_applications",
+                column: "customer_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_outbox_loan_application_id",
                 table: "outbox",
-                column: "application_id");
+                column: "loan_application_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_outbox_pending",
@@ -114,7 +114,7 @@ namespace Loans.Infrastructure.Persistence.Migrations
                 name: "outbox");
 
             migrationBuilder.DropTable(
-                name: "applications");
+                name: "loan_applications");
 
             migrationBuilder.DropTable(
                 name: "customers");

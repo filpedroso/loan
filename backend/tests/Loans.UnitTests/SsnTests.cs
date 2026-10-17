@@ -1,4 +1,5 @@
 using Loans.Domain;
+using Loans.Domain.Customers;
 
 namespace Loans.UnitTests;
 

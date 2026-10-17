@@ -1,4 +1,4 @@
-namespace Loans.Domain;
+namespace Loans.Domain.Customers;
 
 /// <summary>A US Social Security Number. It prints masked, so it can't leak into logs by accident.</summary>
 public sealed record Ssn

@@ -94,13 +94,13 @@ namespace Loans.Infrastructure.Persistence.Migrations
                         .HasColumnName("requested_amount");
 
                     b.HasKey("Id")
-                        .HasName("pk_applications");
+                        .HasName("pk_loan_applications");
 
                     b.HasIndex("CustomerId")
                         .IsUnique()
-                        .HasDatabaseName("ix_applications_customer_id");
+                        .HasDatabaseName("ix_loan_applications_customer_id");
 
-                    b.ToTable("applications", (string)null);
+                    b.ToTable("loan_applications", (string)null);
                 });
 
             modelBuilder.Entity("Loans.Infrastructure.Outbox.OutboxMessage", b =>
@@ -108,10 +108,6 @@ namespace Loans.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<Guid>("ApplicationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("application_id");
 
                     b.Property<int>("Attempts")
                         .HasColumnType("integer")
@@ -125,15 +121,19 @@ namespace Loans.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("delivered_at");
 
+                    b.Property<Guid>("LoanApplicationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("loan_application_id");
+
                     b.HasKey("Id")
                         .HasName("pk_outbox");
-
-                    b.HasIndex("ApplicationId")
-                        .HasDatabaseName("ix_outbox_application_id");
 
                     b.HasIndex("Id")
                         .HasDatabaseName("ix_outbox_pending")
                         .HasFilter("delivered_at IS NULL");
+
+                    b.HasIndex("LoanApplicationId")
+                        .HasDatabaseName("ix_outbox_loan_application_id");
 
                     b.ToTable("outbox", (string)null);
                 });
@@ -153,26 +153,26 @@ namespace Loans.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Loans.Domain.Customers.LoanApplication", b =>
                 {
                     b.HasOne("Loans.Domain.Customers.Customer", null)
-                        .WithOne("Application")
+                        .WithOne("LoanApplication")
                         .HasForeignKey("Loans.Domain.Customers.LoanApplication", "CustomerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_applications_customers_customer_id");
+                        .HasConstraintName("fk_loan_applications_customers_customer_id");
                 });
 
             modelBuilder.Entity("Loans.Infrastructure.Outbox.OutboxMessage", b =>
                 {
                     b.HasOne("Loans.Domain.Customers.LoanApplication", null)
                         .WithMany()
-                        .HasForeignKey("ApplicationId")
+                        .HasForeignKey("LoanApplicationId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_outbox_applications_application_id");
+                        .HasConstraintName("fk_outbox_loan_applications_loan_application_id");
                 });
 
             modelBuilder.Entity("Loans.Domain.Customers.Customer", b =>
                 {
-                    b.Navigation("Application");
+                    b.Navigation("LoanApplication");
                 });
 #pragma warning restore 612, 618
         }

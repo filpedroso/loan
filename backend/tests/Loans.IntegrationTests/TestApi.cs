@@ -1,5 +1,4 @@
 using System.Net.Http.Json;
-using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Infrastructure.Outbox;
 using Loans.Infrastructure.Persistence;
@@ -47,17 +46,17 @@ public static class TestApi
         var hash = scope.ServiceProvider.GetRequiredService<SsnProtector>().Hash(Ssn.Parse(ssn));
 
         return await db.Customers.AsNoTracking()
-            .Include(c => c.Application)
+            .Include(c => c.LoanApplication)
             .SingleOrDefaultAsync(c => EF.Property<byte[]>(c, "SsnHash") == hash, TestContext.Current.CancellationToken);
     }
 
-    public static async Task<List<OutboxMessage>> OutboxAsync(this LoansApiFactory factory, Guid applicationId)
+    public static async Task<List<OutboxMessage>> OutboxAsync(this LoansApiFactory factory, Guid loanApplicationId)
     {
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<LoansDbContext>();
 
         return await db.Outbox.AsNoTracking()
-            .Where(m => m.ApplicationId == applicationId)
+            .Where(m => m.LoanApplicationId == loanApplicationId)
             .OrderBy(m => m.Id)
             .ToListAsync(TestContext.Current.CancellationToken);
     }

@@ -1,3 +1,5 @@
+using Loans.Domain.Customers;
+
 namespace Loans.Domain.Decisions;
 
 /// <summary>Port: the list of SSNs we don't lend to. Implemented by Infrastructure.</summary>

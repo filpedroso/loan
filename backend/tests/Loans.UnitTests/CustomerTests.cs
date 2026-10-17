@@ -8,7 +8,7 @@ public class CustomerTests
     private static readonly Ssn AnySsn = Ssn.Parse("987-65-4320");
 
     [Fact]
-    public void Register_creates_a_customer_with_trimmed_details_and_no_application()
+    public void Register_creates_a_customer_with_trimmed_details_and_no_loan_application()
     {
         var customer = Customer.Register(AnySsn, " Jane ", "Doe", "1 Main St, Springfield", "ca", "Acme Corp");
 
@@ -16,7 +16,7 @@ public class CustomerTests
         Assert.Equal(AnySsn, customer.Ssn);
         Assert.Equal("Jane", customer.FirstName);
         Assert.Equal("CA", customer.State);
-        Assert.Null(customer.Application);
+        Assert.Null(customer.LoanApplication);
     }
 
     [Theory]
@@ -69,27 +69,27 @@ public class CustomerTests
     }
 
     [Fact]
-    public void Apply_creates_an_application_owned_by_the_customer()
+    public void Apply_creates_a_loan_application_owned_by_the_customer()
     {
         var customer = Register();
 
-        var application = customer.Apply(Money.Of(1500m));
+        var loanApplication = customer.Apply(RequestedAmount.Of(1500m));
 
-        Assert.Same(application, customer.Application);
-        Assert.Equal(customer.Id, application.CustomerId);
-        Assert.Equal(Money.Of(1500m), application.RequestedAmount);
+        Assert.Same(loanApplication, customer.LoanApplication);
+        Assert.Equal(customer.Id, loanApplication.CustomerId);
+        Assert.Equal(RequestedAmount.Of(1500m), loanApplication.RequestedAmount);
     }
 
     [Fact]
-    public void Apply_again_overwrites_the_amount_and_keeps_the_application_id()
+    public void Apply_again_overwrites_the_amount_and_keeps_the_loan_application_id()
     {
         var customer = Register();
-        var first = customer.Apply(Money.Of(1500m));
+        var first = customer.Apply(RequestedAmount.Of(1500m));
 
-        var second = customer.Apply(Money.Of(2500m));
+        var second = customer.Apply(RequestedAmount.Of(2500m));
 
         Assert.Equal(first.Id, second.Id);
-        Assert.Equal(Money.Of(2500m), second.RequestedAmount);
+        Assert.Equal(RequestedAmount.Of(2500m), second.RequestedAmount);
     }
 
     private static Customer Register() =>

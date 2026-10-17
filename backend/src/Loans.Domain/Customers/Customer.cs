@@ -15,7 +15,7 @@ public sealed class Customer
     public string Address { get; private set; } = "";
     public string State { get; private set; } = "";
     public string CompanyName { get; private set; } = "";
-    public LoanApplication? Application { get; private set; }
+    public LoanApplication? LoanApplication { get; private set; }
 
     public static Customer Register(
         Ssn ssn, string firstName, string lastName, string address, string state, string companyName)
@@ -39,15 +39,15 @@ public sealed class Customer
             (validFirstName, validLastName, validAddress, validState, validCompanyName);
     }
 
-    /// <summary>Creates the application, or overwrites its amount if there is one. Its id never changes.</summary>
-    public LoanApplication Apply(Money requestedAmount)
+    /// <summary>Creates the loan application, or overwrites its amount if there is one. Its id never changes.</summary>
+    public LoanApplication Apply(RequestedAmount requestedAmount)
     {
-        if (Application is null)
-            Application = new LoanApplication(Id, requestedAmount);
+        if (LoanApplication is null)
+            LoanApplication = new LoanApplication(Id, requestedAmount);
         else
-            Application.Overwrite(requestedAmount);
+            LoanApplication.Overwrite(requestedAmount);
 
-        return Application;
+        return LoanApplication;
     }
 
     private static string Required(string? value, string field, int maxLength)

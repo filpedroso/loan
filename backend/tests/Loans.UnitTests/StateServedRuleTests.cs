@@ -1,4 +1,3 @@
-using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Domain.Decisions;
 

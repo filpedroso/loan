@@ -1,4 +1,3 @@
-using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Infrastructure.Outbox;
 using Loans.Infrastructure.Security;
@@ -14,7 +13,7 @@ public sealed class LoansDbContext(DbContextOptions<LoansDbContext> options, Ssn
     public const string SsnHash = "SsnHash";
 
     public DbSet<Customer> Customers => Set<Customer>();
-    public DbSet<LoanApplication> Applications => Set<LoanApplication>();
+    public DbSet<LoanApplication> LoanApplications => Set<LoanApplication>();
     public DbSet<BlockedSsn> Blocklist => Set<BlockedSsn>();
     public DbSet<OutboxMessage> Outbox => Set<OutboxMessage>();
 
@@ -25,8 +24,8 @@ public sealed class LoansDbContext(DbContextOptions<LoansDbContext> options, Ssn
 
         model.Entity<Customer>(customer =>
         {
-            // Ids are created in the domain. Without this, EF would treat a new application
-            // reached through customer.Application as an existing row and UPDATE it.
+            // Ids are created in the domain. Without this, EF would treat a new loan application
+            // reached through customer.LoanApplication as an existing row and UPDATE it.
             customer.Property(c => c.Id).ValueGeneratedNever();
             customer.Property(c => c.Ssn)
                 .HasColumnName("ssn_encrypted")
@@ -38,14 +37,14 @@ public sealed class LoansDbContext(DbContextOptions<LoansDbContext> options, Ssn
             customer.Property(c => c.Address).HasMaxLength(300);
             customer.Property(c => c.State).HasMaxLength(2);
             customer.Property(c => c.CompanyName).HasMaxLength(200);
-            customer.HasOne(c => c.Application).WithOne().HasForeignKey<LoanApplication>(a => a.CustomerId);
+            customer.HasOne(c => c.LoanApplication).WithOne().HasForeignKey<LoanApplication>(a => a.CustomerId);
         });
 
-        model.Entity<LoanApplication>(application =>
+        model.Entity<LoanApplication>(loanApplication =>
         {
-            application.Property(a => a.Id).ValueGeneratedNever();
-            application.Property(a => a.RequestedAmount)
-                .HasConversion(money => money.Amount, amount => Money.Of(amount, nameof(LoanApplication.RequestedAmount)))
+            loanApplication.Property(a => a.Id).ValueGeneratedNever();
+            loanApplication.Property(a => a.RequestedAmount)
+                .HasConversion(amount => amount.Value, value => RequestedAmount.Of(value))
                 .HasPrecision(18, 2);
         });
 
@@ -54,7 +53,7 @@ public sealed class LoansDbContext(DbContextOptions<LoansDbContext> options, Ssn
         model.Entity<OutboxMessage>(message =>
         {
             message.Property(m => m.Id).ValueGeneratedNever();
-            message.HasOne<LoanApplication>().WithMany().HasForeignKey(m => m.ApplicationId);
+            message.HasOne<LoanApplication>().WithMany().HasForeignKey(m => m.LoanApplicationId);
             // Keeps the worker's query small however many messages were already delivered.
             message.HasIndex(m => m.Id).HasFilter("delivered_at IS NULL").HasDatabaseName("ix_outbox_pending");
         });

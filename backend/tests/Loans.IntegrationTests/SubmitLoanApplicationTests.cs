@@ -1,14 +1,14 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Loans.Domain;
+using Loans.Domain.Customers;
 using Loans.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Loans.IntegrationTests;
 
-public class SubmitApplicationTests(LoansApiFactory factory) : IClassFixture<LoansApiFactory>
+public class SubmitLoanApplicationTests(LoansApiFactory factory) : IClassFixture<LoansApiFactory>
 {
     private readonly HttpClient client = factory.CreateClient();
 
@@ -25,8 +25,8 @@ public class SubmitApplicationTests(LoansApiFactory factory) : IClassFixture<Loa
         Assert.NotNull(customer);
         Assert.Equal(Ssn.Parse(ssn), customer.Ssn);
         Assert.Equal("CA", customer.State);
-        Assert.Equal(response.ApplicationId, customer.Application?.Id);
-        Assert.Equal(Money.Of(1500m), customer.Application?.RequestedAmount);
+        Assert.Equal(response.ApplicationId, customer.LoanApplication?.Id);
+        Assert.Equal(RequestedAmount.Of(1500m), customer.LoanApplication?.RequestedAmount);
         var message = Assert.Single(await factory.OutboxAsync(response.ApplicationId!.Value));
         Assert.Equal(0, message.Attempts);
         Assert.Null(message.DeliveredAt);
@@ -59,7 +59,7 @@ public class SubmitApplicationTests(LoansApiFactory factory) : IClassFixture<Loa
         Assert.Equal(first.ApplicationId, second.ApplicationId);
         var customer = await factory.FindCustomerAsync(ssn);
         Assert.Equal(("Janet", "TX"), (customer!.FirstName, customer.State));
-        Assert.Equal(Money.Of(2500m), customer.Application?.RequestedAmount);
+        Assert.Equal(RequestedAmount.Of(2500m), customer.LoanApplication?.RequestedAmount);
         Assert.Equal(2, (await factory.OutboxAsync(first.ApplicationId!.Value)).Count);
     }
 
@@ -121,8 +121,8 @@ public class SubmitApplicationTests(LoansApiFactory factory) : IClassFixture<Loa
             Enumerable.Range(1, 10).Select(i => client.SubmitAsync(TestApi.Form(ssn, amount: 1000m + i))));
 
         Assert.All(responses, r => Assert.Equal("Approved", r.Decision));
-        var applicationId = Assert.Single(responses.Select(r => r.ApplicationId).Distinct());
+        var loanApplicationId = Assert.Single(responses.Select(r => r.ApplicationId).Distinct());
         Assert.NotNull(await factory.FindCustomerAsync(ssn));
-        Assert.Equal(10, (await factory.OutboxAsync(applicationId!.Value)).Count);
+        Assert.Equal(10, (await factory.OutboxAsync(loanApplicationId!.Value)).Count);
     }
 }

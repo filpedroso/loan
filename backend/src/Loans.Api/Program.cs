@@ -14,7 +14,7 @@ using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Domain and Application: the decision rules (in order), the engine and the use case.
+// Domain and use cases: the decision rules (in order), the engine and the use case.
 builder.Services.AddSingleton<IDecisionRule>(sp => new StateServedRule(
     (sp.GetRequiredService<IConfiguration>().GetSection("Decision:BlockedStates").Get<string[]>() ?? [])
     .ToFrozenSet(StringComparer.OrdinalIgnoreCase)));
@@ -35,7 +35,7 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy(ApplicationsController.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+    options.AddPolicy(LoanApplicationsController.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
         http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
         _ => new FixedWindowRateLimiterOptions
         {

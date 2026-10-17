@@ -4,7 +4,7 @@ using Loans.UseCases;
 namespace Loans.Api;
 
 /// <summary>The form as JSON. Fields are nullable so that all validation happens in one place: the domain.</summary>
-public sealed record SubmitApplicationRequest(
+public sealed record SubmitLoanApplicationRequest(
     string? FirstName,
     string? LastName,
     string? Address,
@@ -33,11 +33,12 @@ public enum PublicReason
     NotEligible,
 }
 
-public sealed record SubmitApplicationResponse(Outcome Decision, Guid? ApplicationId, IReadOnlyList<PublicReason> Reasons)
+/// <summary>The public JSON keeps the short name <c>applicationId</c>.</summary>
+public sealed record SubmitLoanApplicationResponse(Outcome Decision, Guid? ApplicationId, IReadOnlyList<PublicReason> Reasons)
 {
-    public static SubmitApplicationResponse From(SubmissionResult result) => new(
+    public static SubmitLoanApplicationResponse From(SubmissionResult result) => new(
         result.IsApproved ? Outcome.Approved : Outcome.Denied,
-        result.ApplicationId,
+        result.LoanApplicationId,
         result.Reasons.Select(ToPublic).ToList());
 
     private static PublicReason ToPublic(DenialReason reason) => reason switch

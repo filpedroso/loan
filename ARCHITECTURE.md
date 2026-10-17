@@ -12,7 +12,7 @@ The API decides right away. If it approves, it saves the customer, the applicati
 
 | Folder | Responsibility | Depends on |
 |---|---|---|
-| `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `Money` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
+| `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `RequestedAmount` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
 | `backend/src/Loans.UseCases` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
 | `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, CRM client | Application |
 | `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |

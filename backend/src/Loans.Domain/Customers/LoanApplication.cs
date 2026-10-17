@@ -8,7 +8,7 @@ public sealed class LoanApplication
 {
     private LoanApplication() { } // For EF Core.
 
-    internal LoanApplication(Guid customerId, Money requestedAmount)
+    internal LoanApplication(Guid customerId, RequestedAmount requestedAmount)
     {
         Id = Guid.CreateVersion7();
         CustomerId = customerId;
@@ -17,7 +17,7 @@ public sealed class LoanApplication
 
     public Guid Id { get; private set; }
     public Guid CustomerId { get; private set; }
-    public Money RequestedAmount { get; private set; } = null!;
+    public RequestedAmount RequestedAmount { get; private set; } = null!;
 
-    internal void Overwrite(Money requestedAmount) => RequestedAmount = requestedAmount;
+    internal void Overwrite(RequestedAmount requestedAmount) => RequestedAmount = requestedAmount;
 }

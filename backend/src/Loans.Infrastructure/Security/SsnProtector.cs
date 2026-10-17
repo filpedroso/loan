@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
-using Loans.Domain;
+using Loans.Domain.Customers;
 using Microsoft.Extensions.Configuration;
 
 namespace Loans.Infrastructure.Security;

@@ -1,4 +1,3 @@
-using Loans.Domain;
 using Loans.Domain.Customers;
 using Loans.Domain.Decisions;
 
@@ -10,7 +9,7 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
     public async Task<SubmissionResult> HandleAsync(SubmitLoanApplicationCommand command, CancellationToken ct)
     {
         var ssn = Ssn.Parse(command.Ssn);
-        var amount = Money.Of(command.RequestedAmount, nameof(command.RequestedAmount));
+        var amount = RequestedAmount.Of(command.RequestedAmount);
 
         var customer = await customers.FindBySsnAsync(ssn, ct);
         if (customer is null)
@@ -24,13 +23,13 @@ public sealed class SubmitLoanApplication(ICustomerRepository customers, Decisio
                 command.FirstName, command.LastName, command.Address, command.State, command.CompanyName);
         }
 
-        var application = customer.Apply(amount);
+        var loanApplication = customer.Apply(amount);
 
         var decision = await engine.DecideAsync(customer, ct);
         if (!decision.Approved)
             return SubmissionResult.Denied(decision.Reasons); // Nothing is saved.
 
         await customers.SaveApprovedAsync(customer, ct);
-        return SubmissionResult.Approved(application.Id);
+        return SubmissionResult.Approved(loanApplication.Id);
     }
 }

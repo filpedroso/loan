@@ -41,20 +41,20 @@ public sealed class OutboxDispatcher(
         if (batch.Count == 0)
             return null;
 
-        var applicationIds = batch.Select(m => m.ApplicationId).ToList();
+        var loanApplicationIds = batch.Select(m => m.LoanApplicationId).ToList();
         var customers = await db.Customers.AsNoTracking()
-            .Include(c => c.Application)
-            .Where(c => applicationIds.Contains(c.Application!.Id))
-            .ToDictionaryAsync(c => c.Application!.Id, ct);
+            .Include(c => c.LoanApplication)
+            .Where(c => loanApplicationIds.Contains(c.LoanApplication!.Id))
+            .ToDictionaryAsync(c => c.LoanApplication!.Id, ct);
 
         var crmDown = false;
         foreach (var message in batch)
         {
-            var (delivered, looksDown, status) = await SendAsync(customers[message.ApplicationId], ct);
+            var (delivered, looksDown, status) = await SendAsync(customers[message.LoanApplicationId], ct);
             if (delivered)
             {
                 message.DeliveredAt = DateTimeOffset.UtcNow;
-                logger.LogInformation("Delivered application {ApplicationId} to the CRM.", message.ApplicationId);
+                logger.LogInformation("Delivered loan application {LoanApplicationId} to the CRM.", message.LoanApplicationId);
                 continue;
             }
 
@@ -62,14 +62,14 @@ public sealed class OutboxDispatcher(
             if (message.Attempts >= settings.MaxAttempts)
             {
                 logger.LogError(
-                    "CRM delivery of application {ApplicationId} failed ({Status}) {Attempts} times; dead-lettered.",
-                    message.ApplicationId, status, message.Attempts);
+                    "CRM delivery of loan application {LoanApplicationId} failed ({Status}) {Attempts} times; dead-lettered.",
+                    message.LoanApplicationId, status, message.Attempts);
             }
             else
             {
                 logger.LogWarning(
-                    "CRM delivery of application {ApplicationId} failed ({Status}), attempt {Attempt} of {MaxAttempts}.",
-                    message.ApplicationId, status, message.Attempts, settings.MaxAttempts);
+                    "CRM delivery of loan application {LoanApplicationId} failed ({Status}), attempt {Attempt} of {MaxAttempts}.",
+                    message.LoanApplicationId, status, message.Attempts, settings.MaxAttempts);
             }
 
             if (looksDown)

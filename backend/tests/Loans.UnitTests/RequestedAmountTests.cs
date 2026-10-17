@@ -1,9 +1,10 @@
 using System.Globalization;
 using Loans.Domain;
+using Loans.Domain.Customers;
 
 namespace Loans.UnitTests;
 
-public class MoneyTests
+public class RequestedAmountTests
 {
     [Theory]
     [InlineData("0.01")]
@@ -11,7 +12,7 @@ public class MoneyTests
     [InlineData("250000.50")]
     public void Of_accepts_positive_amounts_with_up_to_two_decimals(string amount)
     {
-        Assert.Equal(Parse(amount), Money.Of(Parse(amount)).Amount);
+        Assert.Equal(Parse(amount), RequestedAmount.Of(Parse(amount)).Value);
     }
 
     [Theory]
@@ -21,7 +22,7 @@ public class MoneyTests
     [InlineData("10000000000000000")]
     public void Of_rejects_zero_negative_too_precise_or_too_large_amounts(string amount)
     {
-        var error = Assert.Throws<ValidationException>(() => Money.Of(Parse(amount), "RequestedAmount"));
+        var error = Assert.Throws<ValidationException>(() => RequestedAmount.Of(Parse(amount)));
 
         Assert.Equal("RequestedAmount", error.Field);
     }

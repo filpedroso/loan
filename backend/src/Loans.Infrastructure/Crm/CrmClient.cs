@@ -10,19 +10,19 @@ public sealed class CrmClient(HttpClient http)
     /// <summary>PUT creates or overwrites, so sending the same application twice is harmless.</summary>
     public async Task<HttpStatusCode> PutApplicationAsync(Customer customer, CancellationToken ct)
     {
-        var application = customer.Application
-            ?? throw new InvalidOperationException("Only customers with an application are sent to the CRM.");
+        var loanApplication = customer.LoanApplication
+            ?? throw new InvalidOperationException("Only customers with a loan application are sent to the CRM.");
         var payload = new CrmApplication(
-            application.Id,
+            loanApplication.Id,
             customer.FirstName,
             customer.LastName,
             customer.Address,
             customer.State,
             customer.CompanyName,
             customer.Ssn.Value,
-            application.RequestedAmount.Amount);
+            loanApplication.RequestedAmount.Value);
 
-        using var response = await http.PutAsJsonAsync($"applications/{application.Id}", payload, ct);
+        using var response = await http.PutAsJsonAsync($"applications/{loanApplication.Id}", payload, ct);
         return response.StatusCode;
     }
 }
