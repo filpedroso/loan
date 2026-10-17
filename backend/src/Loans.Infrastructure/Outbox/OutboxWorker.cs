@@ -10,7 +10,7 @@ public sealed class OutboxWorker(IServiceScopeFactory scopes, IConfiguration con
     : BackgroundService
 {
     /// <summary>Time between ticks, which is also the time between retries.</summary>
-    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
+    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

@@ -60,12 +60,12 @@ curl -X POST http://localhost:8080/api/v1/applications -H 'Content-Type: applica
   "state": "CA", "companyName": "Acme Corp", "ssn": "987-65-4320", "requestedAmount": 50000 }'
 ```
 
-Within 30 seconds of an approval, the loan application shows up at http://localhost:8081/applications.
+Within a second of an approval, the loan application shows up at http://localhost:8081/applications.
 
 To simulate an external partner outage:
 1. `docker compose -f infra/docker-compose.yml stop external-partner`
 2. Submit a loan application. Warnings appear in the dashboard's structured logs.
-3. `docker compose -f infra/docker-compose.yml start external-partner`. The next worker tick delivers it.
+3. `docker compose -f infra/docker-compose.yml start external-partner`. If it's back within about 10 seconds, the next tick delivers the message. Otherwise the message is dead-lettered after 10 failed attempts; the replay query in [ARCHITECTURE.md](ARCHITECTURE.md#outbox-worker) sends it again.
 
 ## Develop without containers
 

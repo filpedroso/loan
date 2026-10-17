@@ -3,7 +3,7 @@
 ```
 Browser ── POST /api/v1/applications ──▶ API (.NET 10) ──▶ PostgreSQL
                                           │
-                                          └─ outbox worker, every 30 s ── PUT /applications/{id} ──▶ External partner (mock)
+                                          └─ outbox worker, every second ── PUT /applications/{id} ──▶ External partner (mock)
 ```
 
 The API decides right away. If it approves, it saves the customer, the loan application and an outbox message in one transaction. The worker later delivers the message to the external partner and retries until the partner accepts it.
@@ -50,7 +50,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 |---|---|
 | Validation or decision | Nothing written |
 | Any database write (customer, loan application or outbox) | One `SaveChanges` in one transaction: everything rolls back, the user gets a 500 |
-| After the commit: partner down, 500, timeout | The message stays pending and is retried every 30 s; the data is already saved |
+| After the commit: partner down, 500, timeout | The message stays pending and is retried every second; the data is already saved |
 | Partner answers 400 | Retried like any failure, then dead-lettered |
 | Worker crashes mid-send, or the partner's answer is lost | The message is sent again. Harmless: `PUT` overwrites |
 
@@ -58,15 +58,15 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 
 ## Outbox worker
 
-- Every 30 s, a tick takes up to 100 pending messages, oldest first (ids are UUIDv7, so id order is creation order), and sends each one.
+- Every second, a tick takes up to 100 pending messages, oldest first (ids are UUIDv7, so id order is creation order), and sends each one.
 - The payload is built from the current data at send time, one message at a time. The partner always gets the latest submission, the SSN never sits in the outbox, and one unreadable row fails alone.
 - Outcomes:
   - **Any 2xx:** `delivered_at` is set.
   - **Anything else** (another status, a timeout, a network error): `attempts + 1` and a Warning log.
   - **The 10th failure:** an Error log; the message is dead-lettered (`delivered_at IS NULL AND attempts = 10`).
-- Every failure costs an attempt, so an outage longer than about 5 minutes dead-letters messages. To replay them: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
+- Every failure costs an attempt, so an outage longer than about 10 seconds dead-letters messages. To replay them: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
 - One worker runs. With several API instances, set `Outbox:Enabled=false` on all but one; two workers could send the same message twice, or an older payload after a newer one.
-- It delivers up to 200 messages a minute. A partner that hangs instead of answering makes a tick last up to 100 × 5 s.
+- It delivers up to 100 messages a second. A partner that hangs instead of answering makes a tick last up to 100 × 5 s.
 
 ## Calling the external partner
 
@@ -95,9 +95,9 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 
 | Decision | Why | Cost |
 |---|---|---|
-| Outbox with eventual delivery | Data and intent commit together; delivery survives partner outages | The partner is up to 30 s behind |
-| Fixed 30 s interval, 10 attempts | Simple, and no extra column | Outages longer than ~5 min dead-letter messages; replay is manual |
-| One worker, one batch per tick, no row locking | No transaction or locking SQL | Up to 200 deliveries a minute; several API instances need `Outbox:Enabled=false` on all but one |
+| Outbox with eventual delivery | Data and intent commit together; delivery survives partner outages | The partner is up to a second behind |
+| Fixed 1 s interval, 10 attempts | Approvals reach the partner within a second; simple, no extra column | Outages longer than ~10 s dead-letter messages; replay is manual |
+| One worker, one batch per tick, no row locking | No transaction or locking SQL | Up to 100 deliveries a second; several API instances need `Outbox:Enabled=false` on all but one |
 | Worker inside the API process | One deployable | Scales with the API; `Outbox:Enabled=false` separates them |
 | One loan application per customer, overwritten | The exercise asks for it | No history of past submissions |
 | Denials aren't stored | Keeps the model small | No record of why someone was denied. In real US lending, denials need regulated notices (ECOA / Reg B) and record keeping |
@@ -120,8 +120,9 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 ## Scaling up
 
 - Run the worker as an Azure Function on a timer trigger, calling the same `OutboxDispatcher`, with `Outbox:Enabled=false` in the API.
-- Wake the worker right after a commit with PostgreSQL `LISTEN/NOTIFY` instead of waiting for the next tick.
-- Exponential backoff with a `next_attempt_at` column, and parallel sends within a batch.
+- Wake the worker right after a commit with PostgreSQL `LISTEN/NOTIFY` instead of polling every second.
+- Space retries apart (a `next_attempt_at` column) so outages longer than ~10 s don't dead-letter messages.
+- Parallel sends within a batch.
 - Raise a `LoanApplicationApproved` domain event instead of syncing every saved loan application, once denials are stored or a second thing reacts to an approval (an email, analytics).
 - Several workers: claim messages with `FOR UPDATE SKIP LOCKED`, and keep one pending row per loan application so an older payload can't arrive after a newer one.
 - Secrets in Azure Key Vault with managed identity; HTTPS terminated at the ingress.
