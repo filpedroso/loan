@@ -51,7 +51,8 @@ if (!string.IsNullOrEmpty(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         .ConfigureResource(resource => resource.AddService("loans-api"))
         .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation())
         .WithMetrics(metrics => metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation())
-        .WithLogging()
+        // Without the formatted message, the dashboard shows the raw template, e.g. "{elapsed}ms".
+        .WithLogging(configureBuilder: null, configureOptions: logging => logging.IncludeFormattedMessage = true)
         .UseOtlpExporter();
 }
 
