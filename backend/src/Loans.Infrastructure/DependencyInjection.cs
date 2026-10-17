@@ -22,7 +22,6 @@ public static class DependencyInjection
         services.AddScoped<ICustomerRepository, CustomerRepository>();
         services.AddScoped<ISsnBlocklist, SsnBlocklist>();
 
-        services.AddOptions<OutboxOptions>().BindConfiguration("Outbox");
         services.AddScoped<OutboxDispatcher>();
         services.AddHostedService<OutboxWorker>();
         services.AddHttpClient<ExternalPartnerClient>((sp, http) =>

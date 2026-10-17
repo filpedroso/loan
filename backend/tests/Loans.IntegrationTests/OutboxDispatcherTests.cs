@@ -23,11 +23,14 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
 
     public ValueTask DisposeAsync() => ValueTask.CompletedTask;
 
-    [Fact]
-    public async Task A_200_marks_the_message_delivered()
+    [Theory]
+    [InlineData(HttpStatusCode.OK)]
+    [InlineData(HttpStatusCode.NoContent)]
+    public async Task Any_2xx_marks_the_message_delivered(HttpStatusCode status)
     {
         var ssn = TestApi.NewSsn();
         var id = (await client.SubmitAsync(TestApi.Form(ssn, amount: 1500m))).ApplicationId!.Value;
+        factory.ExternalPartner.Reset(status);
 
         await factory.DispatchOutboxAsync();
 
@@ -42,9 +45,10 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
     }
 
     [Theory]
+    [InlineData(HttpStatusCode.BadRequest)]
     [InlineData(HttpStatusCode.InternalServerError)]
     [InlineData(null)] // Network error.
-    public async Task When_the_partner_looks_down_the_tick_stops_after_one_attempt(HttpStatusCode? status)
+    public async Task A_failure_counts_an_attempt_and_the_tick_goes_on(HttpStatusCode? status)
     {
         var first = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
         var second = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
@@ -52,23 +56,24 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
 
         await factory.DispatchOutboxAsync();
 
-        Assert.Single(factory.ExternalPartner.Calls);
-        Assert.Equal(1, Assert.Single(await factory.OutboxAsync(first)).Attempts);
-        Assert.Equal(0, Assert.Single(await factory.OutboxAsync(second)).Attempts);
-    }
-
-    [Fact]
-    public async Task A_400_counts_an_attempt_and_the_tick_goes_on()
-    {
-        var first = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
-        var second = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
-        factory.ExternalPartner.Reset(HttpStatusCode.BadRequest);
-
-        await factory.DispatchOutboxAsync();
-
         Assert.Equal(2, factory.ExternalPartner.Calls.Count);
         Assert.Equal(1, Assert.Single(await factory.OutboxAsync(first)).Attempts);
         Assert.Equal(1, Assert.Single(await factory.OutboxAsync(second)).Attempts);
+    }
+
+    [Fact]
+    public async Task An_unreadable_row_fails_alone()
+    {
+        var brokenSsn = TestApi.NewSsn();
+        var broken = (await client.SubmitAsync(TestApi.Form(brokenSsn))).ApplicationId!.Value;
+        var healthy = (await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()))).ApplicationId!.Value;
+        var customer = await factory.FindCustomerAsync(brokenSsn);
+        await factory.ExecuteSqlAsync($"UPDATE customers SET ssn_encrypted = '\\x00' WHERE id = '{customer!.Id}'");
+
+        await factory.DispatchOutboxAsync();
+
+        Assert.Equal(1, Assert.Single(await factory.OutboxAsync(broken)).Attempts);
+        Assert.NotNull(Assert.Single(await factory.OutboxAsync(healthy)).DeliveredAt);
     }
 
     [Fact]
@@ -84,18 +89,6 @@ public class OutboxDispatcherTests : IClassFixture<LoansApiFactory>, IAsyncLifet
         var message = Assert.Single(await factory.OutboxAsync(id));
         Assert.Equal(10, message.Attempts);
         Assert.Null(message.DeliveredAt);
-    }
-
-    [Fact]
-    public async Task One_tick_drains_more_than_one_batch()
-    {
-        // The test factory sets a batch size of 2.
-        for (var i = 0; i < 5; i++)
-            await client.SubmitAsync(TestApi.Form(TestApi.NewSsn()));
-
-        await factory.DispatchOutboxAsync();
-
-        Assert.Equal(5, factory.ExternalPartner.Calls.Count);
     }
 
     [Fact]

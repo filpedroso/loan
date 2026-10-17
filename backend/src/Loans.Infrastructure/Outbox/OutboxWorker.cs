@@ -1,20 +1,24 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Loans.Infrastructure.Outbox;
 
-/// <summary>Runs a dispatcher tick on start and then every <see cref="OutboxOptions.Interval"/>.</summary>
-public sealed class OutboxWorker(IServiceScopeFactory scopes, IOptions<OutboxOptions> options, ILogger<OutboxWorker> logger)
+/// <summary>Runs a dispatcher tick on start and then every <see cref="Interval"/>.</summary>
+public sealed class OutboxWorker(IServiceScopeFactory scopes, IConfiguration config, ILogger<OutboxWorker> logger)
     : BackgroundService
 {
+    /// <summary>Time between ticks, which is also the time between retries.</summary>
+    public static readonly TimeSpan Interval = TimeSpan.FromSeconds(30);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!options.Value.Enabled)
+        // False in tests, and on every API instance but one when several run.
+        if (!config.GetValue("Outbox:Enabled", true))
             return;
 
-        using var timer = new PeriodicTimer(options.Value.Interval);
+        using var timer = new PeriodicTimer(Interval);
         do
         {
             try

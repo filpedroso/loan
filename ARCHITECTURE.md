@@ -58,21 +58,20 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 
 ## Outbox worker
 
-- Every 30 s (`Outbox:Interval`), a tick takes batches of 20 messages with `FOR UPDATE SKIP LOCKED` and tries each message at most once.
-- Ids are UUIDv7, so ordering by id means oldest first.
-- The payload is built from the current data at send time. The partner always gets the latest submission, and the SSN never sits in the outbox.
+- Every 30 s, a tick takes up to 100 pending messages, oldest first (ids are UUIDv7, so id order is creation order), and sends each one.
+- The payload is built from the current data at send time, one message at a time. The partner always gets the latest submission, the SSN never sits in the outbox, and one unreadable row fails alone.
 - Outcomes:
-  - **200:** `delivered_at` is set.
-  - **Any other answer:** `attempts + 1` and a Warning log.
+  - **Any 2xx:** `delivered_at` is set.
+  - **Anything else** (another status, a timeout, a network error): `attempts + 1` and a Warning log.
   - **The 10th failure:** an Error log; the message is dead-lettered (`delivered_at IS NULL AND attempts = 10`).
-  - **500, timeout or network error:** the partner looks down, so the tick stops there. The remaining messages keep their attempts for the next tick.
-- To replay dead letters: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
-- Several API replicas can run the worker: `SKIP LOCKED` keeps two of them off the same message. If a worker crashes, its transaction rolls back and the messages return to the queue.
+- Every failure costs an attempt, so an outage longer than about 5 minutes dead-letters messages. To replay them: `UPDATE outbox SET attempts = 0 WHERE delivered_at IS NULL AND attempts >= 10;`
+- One worker runs. With several API instances, set `Outbox:Enabled=false` on all but one; two workers could send the same message twice, or an older payload after a newer one.
+- It delivers up to 200 messages a minute. A partner that hangs instead of answering makes a tick last up to 100 × 5 s.
 
 ## Calling the external partner
 
 - `ExternalPartnerClient` is a typed `HttpClient` with a 5 s timeout and no retry policy; the outbox is the only retry mechanism.
-- It always sends `PUT /applications/{id}`, which creates or overwrites, so a resend is harmless. The body holds the customer's details, SSN and requested amount. Only 200 counts as success.
+- It always sends `PUT /applications/{id}`, which creates or overwrites, so a resend is harmless. The body holds the customer's details, SSN and requested amount. Any 2xx counts as success.
 - The mock also has `POST` (create) and `GET` (list what it received), and answers 400 for invalid data.
 
 ## Personal data and security
@@ -97,6 +96,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 |---|---|---|
 | Outbox with eventual delivery | Data and intent commit together; delivery survives partner outages | The partner is up to 30 s behind |
 | Fixed 30 s interval, 10 attempts | Simple, and no extra column | Outages longer than ~5 min dead-letter messages; replay is manual |
+| One worker, one batch per tick, no row locking | No transaction or locking SQL | Up to 200 deliveries a minute; several API instances need `Outbox:Enabled=false` on all but one |
 | Worker inside the API process | One deployable | Scales with the API; `Outbox:Enabled=false` separates them |
 | One application per customer, overwritten | The exercise asks for it | No history of past submissions |
 | Denials aren't stored | Keeps the model small | No record of why someone was denied. In real US lending, denials need regulated notices (ECOA / Reg B) and record keeping |
@@ -120,4 +120,5 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - Run the worker as an Azure Function on a timer trigger, calling the same `OutboxDispatcher`, with `Outbox:Enabled=false` in the API.
 - Wake the worker right after a commit with PostgreSQL `LISTEN/NOTIFY` instead of waiting for the next tick.
 - Exponential backoff with a `next_attempt_at` column, and parallel sends within a batch.
+- Several workers: claim messages with `FOR UPDATE SKIP LOCKED`, and keep one pending row per loan application so an older payload can't arrive after a newer one.
 - Secrets in Azure Key Vault with managed identity; HTTPS terminated at the ingress.
