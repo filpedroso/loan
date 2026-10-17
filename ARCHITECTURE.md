@@ -16,8 +16,9 @@ The API decides right away. If it approves, it saves the customer, the applicati
 | `backend/src/Loans.Application` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
 | `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, CRM client | Application |
 | `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |
-| `partner/Partner.Mock` | The external CRM, in memory | none |
+| `partner/Partner.Mock` | The external CRM, in memory. Has its own build settings, as another company's system would | none |
 | `web` | Next.js form; calls the API from the browser | the API, over HTTP |
+| `infra` | Docker Compose stack and the k6 load test | the images of the above |
 
 Dependencies point inward, and project references enforce it: the Domain can't reference EF Core or ASP.NET. Infrastructure is a separate project, so the worker can move to its own host without the web API.
 
@@ -79,7 +80,7 @@ A database write and an HTTP call can't be one atomic transaction. So the CRM ca
 - **Result page:** shows only what was just submitted, never stored data.
 - **API:** CORS allows only the web origin; requests are rate-limited per client IP (`RateLimiting:PermitLimit` per minute).
 - **Web app:** sends `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy` headers.
-- **Keys:** come from configuration. The ones in `docker-compose.yml` and `appsettings.Development.json` are for local use only and are kept out of the published image.
+- **Keys:** come from configuration. The ones in `infra/docker-compose.yml` and `appsettings.Development.json` are for local use only and are kept out of the published image.
 
 ## Observability
 

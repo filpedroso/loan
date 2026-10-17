@@ -6,7 +6,7 @@ ifeq ($(OS),Windows_NT)
 $(error On Windows, run make from WSL (Ubuntu); see README.md)
 endif
 
-COMPOSE := docker compose
+COMPOSE := docker compose -f infra/docker-compose.yml
 
 ifeq ($(shell uname -s),Darwin)
   PLATFORM := macOS
@@ -42,7 +42,7 @@ down: ## Stop everything (keeps the database)
 	$(COMPOSE) down
 
 test: ## Run unit and integration tests (needs the .NET 10 SDK and Docker)
-	dotnet test --solution LoanApp.slnx
+	cd backend && dotnet test --solution Loans.slnx
 
 load: export RATE_LIMIT = 1000000
 load: ## Load test the API with k6 (raises its rate limit until the next make up)

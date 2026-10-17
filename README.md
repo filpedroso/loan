@@ -24,7 +24,7 @@ make up       # builds and starts everything
 | CRM mock: what it received | http://localhost:8081/applications |
 | Dashboard: logs, traces, metrics | http://localhost:18888 |
 
-- `make down` stops everything and keeps the database. `docker compose down -v` deletes the database too.
+- `make down` stops everything and keeps the database. `docker compose -f infra/docker-compose.yml down -v` deletes the database too.
 - On WSL, keep a terminal open while you use the app; WSL stops the containers when its last session closes.
 
 ## Test
@@ -61,17 +61,19 @@ curl -X POST http://localhost:8080/api/v1/applications -H 'Content-Type: applica
 Within 30 seconds of an approval, the application shows up at http://localhost:8081/applications.
 
 To simulate a CRM outage:
-1. `docker compose stop partner`
+1. `docker compose -f infra/docker-compose.yml stop partner`
 2. Submit an application. Warnings appear in the dashboard's structured logs.
-3. `docker compose start partner`. The next worker tick delivers it.
+3. `docker compose -f infra/docker-compose.yml start partner`. The next worker tick delivers it.
 
 ## Develop without containers
 
 | Part | How to run it |
 |---|---|
-| Database | `docker compose up -d postgres` |
+| Database | `docker compose -f infra/docker-compose.yml up -d postgres` |
 | API | `dotnet run --project backend/src/Loans.Api`, on http://localhost:8080, using `appsettings.Development.json` |
 | CRM mock | `dotnet run --project partner/Partner.Mock`, on http://localhost:8081 |
 | Web | `cd web && npm ci && npm run dev`, on http://localhost:3000 |
+
+Run `dotnet` commands for the backend (tests, `dotnet ef`) from `backend/`, where its `global.json`, tool manifest and solution are.
 
 Next.js (Turbopack) can't build from a folder whose path contains `#`. If yours does, move the repository.
