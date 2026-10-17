@@ -30,7 +30,10 @@ export async function submitApplication(payload: object): Promise<SubmitResult> 
     return { kind: "failed", message: "We couldn't reach our servers. Check your connection and try again." };
   }
 
-  if (response.ok) return { kind: "decision", decision: (await response.json()) as Decision };
+  if (response.ok) {
+    const decision = (await response.json().catch(() => null)) as Decision | null;
+    if (decision) return { kind: "decision", decision };
+  }
   if (response.status === 400) {
     const errors = fieldErrors(await response.json().catch(() => null));
     if (Object.keys(errors).length > 0) return { kind: "invalid", errors };

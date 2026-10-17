@@ -1,19 +1,11 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import {
-  amountInput,
-  formatAmount,
-  formatSsn,
-  ssnDigits,
-  type FieldErrors,
-  type FieldName,
-  type FormValues,
-} from "@/lib/application";
+import type { ReactNode } from "react";
+import type { FieldErrors, FieldName, FormValues } from "@/lib/application";
 import { US_STATES } from "@/lib/states";
 import { LockIcon } from "./icons";
 
-// Horizontal padding is set per input, so the $ prefix and the Show button have room.
+// Horizontal padding is set per input, so the $ prefix has room.
 const inputBase =
   "block w-full rounded-lg bg-white py-2.5 text-slate-900 shadow-xs ring-1 ring-inset ring-slate-300 outline-none " +
   "placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-600 aria-invalid:ring-2 aria-invalid:ring-red-600";
@@ -27,8 +19,6 @@ type Props = {
 };
 
 export function ApplicationForm({ values, errors, formError, onChange, onSubmit }: Props) {
-  const [showSsn, setShowSsn] = useState(false);
-
   // What every input shares: identity, value and the accessibility wiring to its hint or error.
   const bind = (field: FieldName, hasHint = false) => ({
     id: field,
@@ -38,8 +28,10 @@ export function ApplicationForm({ values, errors, formError, onChange, onSubmit 
     "aria-describedby": errors[field] || hasHint ? `${field}-note` : undefined,
   });
 
+  // POST, so a submit before the page finishes loading can't put the SSN in the URL.
   return (
     <form
+      method="post"
       noValidate
       className="space-y-8"
       onSubmit={(event) => {
@@ -123,8 +115,7 @@ export function ApplicationForm({ values, errors, formError, onChange, onSubmit 
             inputMode="decimal"
             autoComplete="off"
             placeholder="50,000"
-            onChange={(e) => onChange("requestedAmount", amountInput(e.target.value))}
-            onBlur={() => onChange("requestedAmount", formatAmount(values.requestedAmount))}
+            onChange={(e) => onChange("requestedAmount", e.target.value)}
           />
         </Field>
       </Section>
@@ -143,24 +134,14 @@ export function ApplicationForm({ values, errors, formError, onChange, onSubmit 
         >
           <input
             {...bind("ssn", true)}
-            value={formatSsn(values.ssn)}
-            type={showSsn ? "text" : "password"}
-            className={`${inputBase} pl-3.5 pr-16 tracking-wider`}
+            className={`${inputBase} px-3.5 tracking-wider`}
             inputMode="numeric"
             autoComplete="off"
             spellCheck={false}
+            maxLength={11}
             placeholder="123-45-6789"
-            onChange={(e) => onChange("ssn", ssnDigits(e.target.value))}
+            onChange={(e) => onChange("ssn", e.target.value)}
           />
-          <button
-            type="button"
-            aria-controls="ssn"
-            aria-pressed={showSsn}
-            onClick={() => setShowSsn((shown) => !shown)}
-            className="absolute inset-y-0 right-0 rounded-r-lg px-3.5 text-sm font-medium text-indigo-700 hover:text-indigo-500 focus-visible:outline-2 focus-visible:outline-indigo-600"
-          >
-            {showSsn ? "Hide" : "Show"}
-          </button>
         </Field>
       </Section>
 

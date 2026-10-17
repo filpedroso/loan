@@ -25,27 +25,17 @@ export const emptyForm: FormValues = {
   ssn: "",
 };
 
-export const ssnDigits = (value: string) => value.replace(/\D/g, "").slice(0, 9);
+/** 123-45-6789 or 123456789. */
+const validSsn = /^\d{3}-?\d{2}-?\d{4}$/;
 
-/** 123456789 -> 123-45-6789, also while typing. */
-export function formatSsn(value: string) {
-  const digits = ssnDigits(value);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
-}
+/** 50000, 50,000, 50000.5 or 50,000.50: commas only between groups of three digits, at most 2 decimals. */
+const validAmount = /^(\d{1,3}(,\d{3})+|\d+)(\.\d{1,2})?$/;
 
-/** What the amount input accepts while typing: digits, commas and a dot. */
-export const amountInput = (value: string) => value.replace(/[^\d.,]/g, "");
+const plainAmount = (value: string) => value.trim().replace(/,/g, "");
 
-const plainAmount = (value: string) => value.replace(/,/g, "");
-const validAmount = /^\d+(\.\d{1,2})?$/;
-
-/** 1500.5 -> 1,500.50. Uses BigInt so very large amounts keep every digit. */
+/** 1500.5 -> 1,500.50, for showing a valid amount. Uses BigInt so very large amounts keep every digit. */
 export function formatAmount(value: string) {
-  const amount = plainAmount(value);
-  if (!validAmount.test(amount)) return value;
-  const [whole, cents] = amount.split(".");
+  const [whole, cents] = plainAmount(value).split(".");
   const grouped = BigInt(whole).toLocaleString("en-US");
   return cents === undefined ? grouped : `${grouped}.${cents.padEnd(2, "0")}`;
 }
@@ -64,12 +54,13 @@ export function validate(values: FormValues): FieldErrors {
   required("address", 300, "Enter your business address");
   if (!US_STATES.some((state) => state.code === values.state)) errors.state = "Select a state";
 
-  const amount = plainAmount(values.requestedAmount);
-  if (!/^\d+(\.\d+)?$/.test(amount) || Number(amount) <= 0) errors.requestedAmount = "Enter an amount greater than $0";
-  else if (!validAmount.test(amount)) errors.requestedAmount = "Use at most 2 decimal places";
-  else if (amount.split(".")[0].replace(/^0+/, "").length > 16) errors.requestedAmount = "That amount is too large";
+  const amount = values.requestedAmount.trim();
+  if (!validAmount.test(amount)) errors.requestedAmount = "Enter an amount like 50,000 or 50000.50";
+  else if (Number(plainAmount(amount)) <= 0) errors.requestedAmount = "Enter an amount greater than $0";
+  else if (plainAmount(amount).split(".")[0].replace(/^0+/, "").length > 16)
+    errors.requestedAmount = "That amount is too large";
 
-  if (ssnDigits(values.ssn).length !== 9) errors.ssn = "Enter all 9 digits of your SSN";
+  if (!validSsn.test(values.ssn.trim())) errors.ssn = "Enter your 9-digit SSN, like 123-45-6789";
   return errors;
 }
 
@@ -82,6 +73,6 @@ export function toPayload(values: FormValues) {
     address: values.address.trim(),
     state: values.state,
     requestedAmount: plainAmount(values.requestedAmount),
-    ssn: ssnDigits(values.ssn),
+    ssn: values.ssn.replace(/\D/g, ""),
   };
 }
