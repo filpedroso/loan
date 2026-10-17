@@ -15,7 +15,7 @@ The API decides right away. If it approves, it saves the customer, the applicati
 | `backend/src/Loans.Domain` | Business rules: `Customer` aggregate and its `LoanApplication`, `Ssn` and `RequestedAmount` value objects, decision rules and `DecisionEngine`, `ISsnBlocklist` port | nothing |
 | `backend/src/Loans.UseCases` | The use case `SubmitLoanApplication`: validate, load, decide, save. `ICustomerRepository` port | Domain |
 | `backend/src/Loans.Infrastructure` | Adapters: EF Core + PostgreSQL, repository, blocklist, SSN encryption, outbox worker, external partner client | Application |
-| `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, rate limit, health, telemetry. Hosts the worker | all of the above |
+| `backend/src/Loans.Api` | Thin controller, composition root, error handling, CORS, health, telemetry. Hosts the worker | all of the above |
 | `partner/ExternalPartner.Mock` | The external partner, in memory. Has its own build settings, as another company's system would | none |
 | `web` | Next.js form; calls the API from the browser | the API, over HTTP |
 | `infra` | Docker Compose stack and the k6 load test | the images of the above |
@@ -79,7 +79,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - **SSN storage:** an HMAC-SHA256 hash for lookups and the blocklist, plus an AES-GCM encrypted copy that only the worker decrypts.
 - **SSN everywhere else:** `Ssn.ToString()` masks it, EF Core doesn't log parameter values, and SSNs never appear in URLs.
 - **Result page:** shows only what was just submitted, never stored data.
-- **API:** CORS allows only the web origin; requests are rate-limited per client IP (`RateLimiting:PermitLimit` per minute).
+- **API:** CORS allows only the web origin.
 - **Web app:** sends `X-Frame-Options`, `X-Content-Type-Options` and `Referrer-Policy` headers.
 - **Keys:** come from configuration. The ones in `infra/docker-compose.yml` and `appsettings.Development.json` are for local use only and are kept out of the published image.
 
@@ -103,7 +103,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 | Advisory lock per SSN | No retry code, and no mixed updates | Holds a connection for the few ms between lookup and save |
 | One DbContext per request, no pooling | The SSN converter needs the encryption service injected | Microseconds per request |
 | Migrations at API startup | No separate migration step; EF Core locks against concurrent runs | The app's database user needs schema rights |
-| Browser calls the API directly | No backend-for-frontend to build | The API is public; CORS and rate limiting protect it |
+| Browser calls the API directly | No backend-for-frontend to build | The API is public; CORS only restricts browsers |
 
 ## Known tech debt
 
@@ -112,7 +112,7 @@ A database write and an HTTP call can't be one atomic transaction. So the call t
 - Delivered outbox rows are never deleted. A cleanup job should remove old ones.
 - Dead letters are only visible in logs and SQL; there's no replay tool.
 - SSN key rotation isn't supported. It would need re-hashing and re-encrypting.
-- Behind a proxy, per-IP rate limiting needs forwarded headers.
+- No rate limiting; in production it belongs in the gateway in front of the API.
 - The frontend has no automated tests.
 
 ## Scaling up

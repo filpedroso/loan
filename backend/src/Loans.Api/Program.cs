@@ -1,6 +1,5 @@
 using System.Collections.Frozen;
 using System.Text.Json.Serialization;
-using System.Threading.RateLimiting;
 using Loans.Api;
 using Loans.Domain.Decisions;
 using Loans.Infrastructure;
@@ -32,17 +31,6 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
     .WithMethods("POST")
     .WithHeaders("Content-Type")));
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy(LoanApplicationsController.RateLimitPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
-        http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = http.RequestServices.GetRequiredService<IConfiguration>().GetValue("RateLimiting:PermitLimit", 20),
-            Window = TimeSpan.FromMinutes(1),
-        }));
-});
 builder.Services.AddHealthChecks().AddDbContextCheck<LoansDbContext>();
 
 // Logs, traces and metrics go to the OTLP endpoint (the Aspire Dashboard) when one is configured.
@@ -62,7 +50,6 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseCors();
-app.UseRateLimiter();
 app.MapControllers();
 app.MapHealthChecks("/health");
 

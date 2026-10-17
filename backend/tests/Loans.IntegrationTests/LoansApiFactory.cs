@@ -21,7 +21,6 @@ public sealed class LoansApiFactory : WebApplicationFactory<Program>, IAsyncLife
         builder.UseSetting("Ssn:HashKey", NewKey());
         builder.UseSetting("Ssn:EncryptionKey", NewKey());
         builder.UseSetting("Outbox:Enabled", "false"); // Tests run the dispatcher themselves.
-        builder.UseSetting("RateLimiting:PermitLimit", "100000");
         builder.ConfigureTestServices(services =>
             services.AddHttpClient<ExternalPartnerClient>().ConfigurePrimaryHttpMessageHandler(() => ExternalPartner));
     }

@@ -28,7 +28,6 @@ services:
       ConnectionStrings__Loans: "Host=postgres;Database=loans;Username=loans;Password=loans"
       ExternalPartner__BaseUrl: "http://external-partner:8080/"
       Cors__AllowedOrigins__0: "http://localhost:3000"
-      RateLimiting__PermitLimit: "${RATE_LIMIT:-20}" # `make load` raises it.
       # Local-only keys. In production they come from a secret store.
       Ssn__HashKey: "xyRKMLQN2eeFC/y2Ygi6lXcBBFZinSl5wV3lFoSwlSM="
       Ssn__EncryptionKey: "wn99p4RG5CX2zk3G7SZeUd0Lc0gr85aB2csTLQAN5ik="

@@ -35,8 +35,7 @@ make load   # k6 against the running stack: 10 s warm-up, then 100 requests/s fo
 ```
 
 - Integration tests start a throwaway PostgreSQL with Testcontainers.
-- `make load` raises the API's rate limit, because k6 sends everything from one IP. The next `make up` restores it.
-- Raising the limit restarts the API, so k6 waits for `/health` and warms the API up before measuring. Only the measured 30 s count toward the thresholds.
+- k6 waits for `/health` and warms the API up before measuring. Only the measured 30 s count toward the thresholds.
 - Frontend checks: `cd web && npm ci && npm run lint && npm run typecheck`.
 
 ## Sample data

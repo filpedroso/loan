@@ -31,8 +31,6 @@ export async function submitApplication(payload: object): Promise<SubmitResult> 
   }
 
   if (response.ok) return { kind: "decision", decision: (await response.json()) as Decision };
-  if (response.status === 429)
-    return { kind: "failed", message: "Too many attempts from your network. Please wait a minute and try again." };
   if (response.status === 400) {
     const errors = fieldErrors(await response.json().catch(() => null));
     if (Object.keys(errors).length > 0) return { kind: "invalid", errors };
